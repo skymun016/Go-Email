@@ -1,0 +1,8 @@
+# ads.txt file for 184772.xyz
+# This file is used to authorize digital advertising sellers
+
+# Google AdSense
+google.com, pub-7869843338158511, DIRECT, f08c47fec0942fa0
+
+# 如果您有其他广告合作伙伴，可以在下面添加
+# 格式: domain, publisher_id, relationship, certification_authority_id
