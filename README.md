@@ -1,415 +1,268 @@
-# Smail - 临时邮箱服务
+# GoMail 🚀
 
-一个基于 React Router v7 和 Cloudflare Workers 构建的现代化临时邮箱服务。
+**前身为 Smail，现已全面升级为 GoMail！**
 
-## 🌟 功能特性
+一个基于 Cloudflare Workers 的现代化临时邮箱服务，采用 React Router v7 构建，具备完整的统一配置管理系统和企业级功能。
 
-- 🚀 **快速生成**: 一键生成临时邮箱地址
-- 📧 **实时接收**: 即时接收和查看邮件
-- 🔒 **隐私保护**: 邮箱到期后自动删除数据
-- 📱 **响应式设计**: 完美适配桌面和移动设备
-- ⚡️ **无服务器架构**: 基于 Cloudflare Workers，全球加速
-- 🗄️ **现代化技术栈**: React Router v7、TypeScript、TailwindCSS
-- 📊 **数据存储**: 使用 Cloudflare D1 数据库和 R2 对象存储
+## 🌟 项目演进
+
+**GoMail** 是在 Smail 基础上的重大升级版本：
+
+### 📈 从 Smail 到 GoMail 的升级亮点：
+- 🔧 **统一配置管理**：引入 `config.cjs` 一键配置系统
+- 📊 **广告系统集成**：完整的 Google AdSense 动态配置
+- 📈 **数据统计**：百度统计无缝集成
+- 🛠️ **自动化工具**：配置验证和自动生成脚本
+- 🎨 **UI/UX 优化**：全新的响应式设计和用户体验
+- 📱 **移动端优化**：完美的移动设备适配
+- 🔐 **安全增强**：ads.txt 自动配置和安全策略
+
+## ✨ 核心功能特性
+
+### 🚀 **邮箱服务**
+- 💨 **即时生成**：无需注册，一键生成专属临时邮箱
+- 📧 **实时接收**：自动接收并实时显示邮件内容
+- 📎 **附件支持**：完整的邮件附件查看和下载功能
+- ⏰ **智能过期**：24小时自动过期，保护用户隐私
+- 🔄 **自动刷新**：10秒智能刷新，不错过任何邮件
+
+### 🎯 **配置管理**
+- 🔧 **统一配置**：只需修改 `config.cjs` 一个文件
+- ⚙️ **自动生成**：配置文件自动生成和同步
+- ✅ **配置验证**：内置验证工具确保配置正确性
+- 📋 **类型安全**：完整的 TypeScript 类型支持
+
+### 💰 **商业化功能**
+- 📊 **Google AdSense**：完整的广告系统集成
+- 📈 **百度统计**：用户行为数据分析
+- 🎨 **响应式广告**：自适应不同设备的广告展示
+- 💡 **条件显示**：可配置的广告开关控制
+
+### 🛡️ **安全与性能**
+- 🔒 **隐私保护**：军用级加密和零日志策略
+- ⚡ **极速访问**：基于 Cloudflare 全球网络
+- 📱 **PWA 支持**：渐进式 Web 应用体验
+- 🌐 **SEO 优化**：完整的搜索引擎优化
 
 ## 🛠️ 技术栈
 
-- **前端**: React Router v7, TypeScript, TailwindCSS
-- **后端**: Cloudflare Workers, Email Workers
-- **数据库**: Cloudflare D1 (SQLite)
-- **存储**: Cloudflare R2 (附件存储)
-- **ORM**: Drizzle ORM
-- **邮件解析**: postal-mime
+### 前端技术
+- **框架**：React Router v7
+- **样式**：Tailwind CSS + 自定义组件库
+- **构建**：Vite 6.x
+- **类型**：TypeScript
 
-## ⚠️ 重要修复说明
+### 后端服务
+- **运行时**：Cloudflare Workers
+- **数据库**：Cloudflare D1 (SQLite)
+- **存储**：Cloudflare R2 (附件存储)
+- **缓存**：Cloudflare KV
+- **邮件**：Cloudflare Email Workers
 
-在部署之前，请确保已经应用了以下关键修复：
+### 开发工具
+- **ORM**：Drizzle ORM
+- **包管理**：pnpm
+- **代码质量**：Biome
+- **部署**：Wrangler CLI
 
-### 1. 数据库连接修复
-**文件**: `app/lib/db.ts`
-- 移除了有问题的 `import { env } from "cloudflare:workers"`
-- 修改 `createDB` 函数要求必须传递数据库参数
-- 修复了环境变量访问问题
+## 🚀 快速开始
 
-### 2. Session 配置修复
-**文件**: `app/.server/session.ts`
-- 重构为工厂函数模式，避免环境变量导入问题
-- 所有 session 函数现在需要传递 `env` 参数
+### 📋 环境要求
 
-### 3. 路由文件修复
-**文件**: `app/routes/home.tsx`
-- 更新所有 session 调用以正确传递环境变量
-- 确保数据库连接正确传递参数
+- Node.js 18+
+- pnpm 8+
+- Cloudflare 账户
 
-### 4. 环境变量配置
-需要在 Cloudflare Workers 中设置 `SESSION_SECRET` 环境变量
+### 🔧 一键配置部署
 
-## 🚀 完整部署流程
+1. **克隆项目**
+```bash
+git clone https://github.com/xn030523/Go-Email.git
+cd Go-Email
+```
 
-### 第一步：环境准备
-
-#### 1.1 安装依赖
+2. **安装依赖**
 ```bash
 pnpm install
 ```
 
-#### 1.2 配置本地环境变量
+3. **配置项目**
 ```bash
-# 复制环境变量示例文件
-cp .dev.vars.example .dev.vars
+# 编辑主配置文件
+vim config.cjs
 
-# 生成 Session 密钥
-openssl rand -base64 32
+# 验证配置
+pnpm run validate-config
 
-# 编辑 .dev.vars 文件，填入生成的密钥
-# SESSION_SECRET=你生成的密钥
+# 生成所有配置文件
+pnpm run generate-configs
 ```
 
-### 第二步：Cloudflare 资源创建
-
-#### 2.1 登录 Cloudflare
-```bash
-# 登录 Cloudflare 账户
-wrangler auth login
-```
-
-#### 2.2 创建 D1 数据库
-```bash
-# 创建数据库
-wrangler d1 create gomail-database
-
-# 记录返回的数据库 ID，更新到 wrangler.jsonc 中
-```
-
-#### 2.3 创建 KV 命名空间
-```bash
-# 创建 KV 存储
-wrangler kv namespace create "gomail-kv"
-
-# 记录返回的 KV ID，更新到 wrangler.jsonc 中
-```
-
-#### 2.4 创建 R2 存储桶
-```bash
-# 创建 R2 存储桶
-wrangler r2 bucket create gomail-attachments
-
-# 存储桶名称会自动配置到 wrangler.jsonc 中
-```
-
-#### 2.5 配置邮件路由
-```bash
-# 在 Cloudflare Dashboard 中配置邮件路由
-# 1. 进入 Email Routing 页面
-# 2. 添加你的域名（如 184772.xyz）
-# 3. 配置 MX 记录
-# 4. 启用 Email Workers
-```
-
-### 第三步：数据库设置
-
-#### 3.1 生成迁移文件
-```bash
-pnpm run db:generate
-```
-
-#### 3.2 应用数据库迁移
-```bash
-# 本地开发环境
-pnpm run db:migrate
-
-# 生产环境
-wrangler d1 migrations apply gomail-database
-```
-
-### 第四步：环境变量配置
-
-#### 4.1 设置 Session Secret
-```bash
-# 设置 SESSION_SECRET 环境变量
-wrangler secret put SESSION_SECRET
-
-# 输入之前生成的密钥
-```
-
-#### 4.2 验证环境变量
-```bash
-# 查看已设置的环境变量
-wrangler secret list
-```
-
-### 第五步：构建和部署
-
-#### 5.1 构建项目
-```bash
-pnpm run build
-```
-
-#### 5.2 部署到 Cloudflare Workers
-```bash
-wrangler deploy
-```
-
-#### 5.3 验证部署
-```bash
-# 检查部署状态
-wrangler deployments list
-
-# 查看实时日志
-wrangler tail
-```
-
-### 第六步：本地开发（可选）
-
-#### 6.1 启动开发服务器
+4. **本地开发**
 ```bash
 pnpm dev
 ```
 
-#### 6.2 测试邮件功能
+5. **部署到 Cloudflare**
 ```bash
-# 发送测试邮件
-pnpm run test:email
+# 登录 Cloudflare
+wrangler auth login
 
-# 发送自定义测试邮件
-pnpm run test:email:custom mytest@184772.xyz sender@example.com 5173 true
+# 创建资源（按照 DEPLOYMENT.md 指南）
+# 然后部署
+pnpm run deploy
 ```
 
-## 🔧 故障排除
-
-### 常见问题及解决方案
-
-#### 1. "Database not available" 错误
-**原因**: 数据库连接参数未正确传递
-**解决方案**: 
-- 确保 `wrangler.jsonc` 中的数据库配置正确
-- 检查 `createDB` 函数调用是否传递了 `env.DB` 参数
-
-#### 2. "Imported HMAC key length (0)" 错误
-**原因**: `SESSION_SECRET` 环境变量未设置
-**解决方案**:
-```bash
-# 生成新的密钥
-openssl rand -base64 32
-
-# 设置环境变量
-wrangler secret put SESSION_SECRET
-```
-
-#### 3. "no such table: mailboxes" 错误
-**原因**: 数据库迁移未执行
-**解决方案**:
-```bash
-# 本地环境
-pnpm run db:migrate
-
-# 生产环境
-wrangler d1 migrations apply gomail-database
-```
-
-#### 4. 邮件接收失败
-**检查项**:
-- 确认域名的 MX 记录配置正确
-- 检查 Email Workers 是否启用
-- 验证邮件路由规则配置
-
-#### 5. 附件下载失败
-**检查项**:
-- 确认 R2 存储桶创建成功
-- 检查 R2 存储桶权限配置
-- 验证附件上传状态
-
-### 调试命令
-
-```bash
-# 查看实时日志
-wrangler tail
-
-# 检查数据库内容
-wrangler d1 execute gomail-database --command="SELECT * FROM mailboxes LIMIT 5;"
-wrangler d1 execute gomail-database --command="SELECT * FROM emails LIMIT 5;"
-
-# 查看环境变量
-wrangler secret list
-
-# 查看部署状态
-wrangler deployments list
-```
-
-## 📦 项目结构
+## 📁 项目结构
 
 ```
-smail/
-├── app/                    # React Router 应用
-│   ├── .server/           # 服务端代码
-│   │   └── session.ts     # Session 管理（已修复）
-│   ├── components/        # React 组件
-│   ├── db/               # 数据库相关
-│   │   ├── migrations/   # 数据库迁移文件
-│   │   └── schema.ts     # 数据库模式
-│   ├── lib/              # 工具库
-│   │   └── db.ts         # 数据库操作（已修复）
-│   └── routes/           # 路由页面
-│       └── home.tsx      # 主页（已修复）
-├── workers/              # Cloudflare Workers
-│   ├── app.ts           # 主 Worker（处理 HTTP 请求和邮件）
-│   └── email.ts         # 邮件处理 Worker
-├── docs/                # 文档
-├── wrangler.jsonc       # Cloudflare Workers 配置
-└── .dev.vars.example    # 环境变量示例
+GoMail/
+├── 📁 app/                     # 应用核心代码
+│   ├── 📁 components/          # React 组件
+│   │   ├── 📁 ui/             # UI 基础组件
+│   │   ├── AdSense.tsx        # 广告组件
+│   │   ├── Navigation.tsx     # 导航组件
+│   │   └── Footer.tsx         # 页脚组件
+│   ├── 📁 routes/             # 路由页面
+│   ├── 📁 config/             # 配置管理
+│   │   ├── app.ts            # 应用配置（自动生成）
+│   │   └── analytics.ts      # 统计配置
+│   ├── 📁 lib/                # 工具库
+│   └── 📁 db/                 # 数据库相关
+├── 📁 workers/                # Cloudflare Workers
+├── 📁 scripts/                # 自动化脚本
+│   ├── generate-configs.cjs   # 配置生成器
+│   └── validate-config.cjs    # 配置验证器
+├── 📁 docs/                   # 文档
+│   ├── adsense-setup.md       # AdSense 配置指南
+│   └── adsense-usage-examples.md
+├── 📁 public/                 # 静态资源
+│   └── ads.txt               # AdSense 验证文件
+├── config.cjs                 # 🎯 主配置文件
+├── wrangler.jsonc            # Cloudflare 配置（自动生成）
+├── .dev.vars                 # 开发环境变量（自动生成）
+└── DEPLOYMENT.md             # 部署指南（自动生成）
 ```
 
-## 🧪 本地开发和测试
+## 🎯 统一配置管理系统
 
-### 发送测试邮件
+GoMail 的最大特色是**统一配置管理**，只需修改一个文件即可完成整个项目的配置：
 
-```bash
-# 快速发送测试邮件
-pnpm run test:email
+### 📝 主配置文件 `config.cjs`
 
-# 发送自定义测试邮件（带附件）
-pnpm run test:email:custom [收件人] [发件人] [端口] [是否包含附件]
-
-# 例如：
-pnpm run test:email:custom mytest@184772.xyz sender@example.com 5173 true
-```
-
-### 数据库管理
-
-```bash
-# 查看迁移状态
-pnpm run db:list
-
-# 重置数据库（清空所有数据）
-pnpm run db:reset
-
-# 重新应用迁移
-pnpm run db:migrate
-```
-
-详细的本地开发指南请查看：[docs/local-development.md](docs/local-development.md)
-
-## 🔧 配置文件说明
-
-### wrangler.jsonc 配置示例
-
-```jsonc
-{
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "gomail-app",
-  "compatibility_date": "2025-04-04",
-  "main": "./workers/app.ts",
-  "observability": {
-    "enabled": true
+```javascript
+module.exports = {
+  // 🏷️ 项目基本信息
+  project: {
+    name: "gomail-app",
+    displayName: "GoMail",
+    description: "免费、安全、无广告的临时邮箱服务",
   },
-  "send_email": [
-    {
-      "name": "184772.xyz"  // 替换为你的域名
-    }
-  ],
-  "kv_namespaces": [
-    {
-      "binding": "gomail-kv",
-      "id": "你的KV命名空间ID"
-    }
-  ],
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "gomail-database",
-      "database_id": "你的数据库ID",
-      "preview_database_id": "你的预览数据库ID",
-      "migrations_dir": "./app/db/migrations"
-    }
-  ],
-  "r2_buckets": [
-    {
-      "binding": "gomail_attachments",
-      "bucket_name": "gomail-attachments",
-      "preview_bucket_name": "gomail-attachments"
-    }
-  ],
-  "assets": {
-    "directory": "./build/client"
-  }
-}
+
+  // 🌐 域名配置
+  domain: {
+    primary: "184772.xyz", // 您的域名
+  },
+
+  // ☁️ Cloudflare 资源配置
+  cloudflare: {
+    database: { name: "gomail-database" },
+    kv: { name: "gomail-kv" },
+    r2: { name: "gomail-attachments" },
+  },
+
+  // 📊 Google AdSense 配置
+  secrets: {
+    googleAdsense: {
+      clientId: "ca-pub-您的客户端ID",
+      enabled: true,
+    },
+    baiduAnalytics: {
+      id: "您的百度统计ID",
+      enabled: true,
+    },
+  },
+};
 ```
 
-### 环境变量配置
+### 🔄 自动化工具
 
-| 变量名 | 说明 | 获取方式 | 示例值 |
-|--------|------|----------|--------|
-| `SESSION_SECRET` | 用户会话加密密钥 | `openssl rand -base64 32` | `AqVx9BFitbs47wFzgUjXTZh0L+I/fKQnXoQzA/cKuyw=` |
-| `BAIDU_ANALYTICS_ID` | 百度统计ID | 百度统计后台获取 | `1234567890abcdef` |
-| `ENABLE_ANALYTICS` | 是否启用统计 | 手动设置 | `true` 或 `false` |
-
-### 百度统计配置
-
-#### 1. 获取百度统计ID
-1. 访问 [百度统计](https://tongji.baidu.com/)
-2. 登录并创建新站点
-3. 进入 **管理** -> **代码获取**
-4. 复制代码中的ID（形如：`hm.js?后面的字符串`）
-
-#### 2. 配置环境变量
 ```bash
-# 本地开发环境（.dev.vars）
-BAIDU_ANALYTICS_ID=你的百度统计ID
-ENABLE_ANALYTICS=true
+# 验证配置
+pnpm run validate-config
 
-# 生产环境
-wrangler secret put BAIDU_ANALYTICS_ID
-# 输入你的百度统计ID
+# 生成所有配置文件
+pnpm run generate-configs
 
-wrangler secret put ENABLE_ANALYTICS
-# 输入 true
-```
+# 自动生成的文件：
+# ├── wrangler.jsonc      # Cloudflare Workers 配置
+# ├── .dev.vars          # 开发环境变量
+# ├── app/config/app.ts  # 应用配置
+# └── DEPLOYMENT.md      # 部署指南
+## 🌟 特色功能
 
-#### 3. 验证配置
-- 部署后访问网站，检查页面源码是否包含百度统计代码
-- 在百度统计后台查看实时访客数据
-- 页脚会显示"网站统计"链接（仅在配置正确时显示）
+### 📊 **Google AdSense 集成**
+- 🎯 **动态配置**：无需修改代码，配置文件控制
+- 📱 **响应式广告**：自适应不同设备尺寸
+- 💡 **条件显示**：可随时启用/禁用广告
+- 🔧 **多广告位**：支持顶部横幅、侧边栏、内容广告
 
-### Cloudflare 资源清单
+### 📈 **数据统计分析**
+- 📊 **百度统计**：完整的用户行为分析
+- 🎛️ **配置化管理**：统计功能可配置开关
+- 📱 **移动端优化**：完美支持移动设备统计
 
-- **D1 数据库**: 存储邮箱和邮件数据
-- **R2 存储**: 存储邮件附件
-- **KV 存储**: 存储用户会话
-- **Email Workers**: 处理入站邮件
-- **域名**: 配置邮件路由的域名
+### 🔐 **安全与隐私**
+- 🛡️ **ads.txt 自动配置**：Google AdSense 验证文件
+- 🔒 **Session 加密**：安全的用户会话管理
+- 🚫 **零日志策略**：不记录用户隐私数据
+- ⏰ **自动过期**：24小时后自动清理数据
 
-## 🚀 快速部署检查清单
+## 📚 文档与指南
 
-在部署前，请确认以下项目已完成：
+- 📖 **[部署指南](DEPLOYMENT.md)** - 完整的部署流程
+- 📊 **[AdSense 配置](docs/adsense-setup.md)** - 广告配置详解
+- 💡 **[使用示例](docs/adsense-usage-examples.md)** - 代码使用示例
 
-- [ ] 已安装 `pnpm` 和 `wrangler`
-- [ ] 已登录 Cloudflare 账户 (`wrangler auth login`)
-- [ ] 已创建 D1 数据库并更新配置
-- [ ] 已创建 KV 命名空间并更新配置
-- [ ] 已创建 R2 存储桶
-- [ ] 已配置域名的 MX 记录
-- [ ] 已设置 `SESSION_SECRET` 环境变量
-- [ ] 已执行数据库迁移
-- [ ] 已成功构建项目 (`pnpm run build`)
-- [ ] 已成功部署 (`wrangler deploy`)
+## 🎯 部署状态
 
-## 📞 技术支持
+- ✅ **在线演示**: https://184772.xyz
+- ✅ **GitHub 仓库**: https://github.com/xn030523/Go-Email
+- ✅ **技术支持**: 完整的文档和示例
 
-如果在部署过程中遇到问题，请：
+## 🤝 贡献指南
 
-1. 检查上述故障排除部分
-2. 查看 Cloudflare Workers 日志 (`wrangler tail`)
-3. 确认所有配置文件正确
-4. 提交 Issue 并附上错误日志
-
-## 🤝 贡献
-
-欢迎提交 Issue 和 Pull Request！
+1. **Fork 项目**
+2. **创建功能分支** (`git checkout -b feature/AmazingFeature`)
+3. **提交更改** (`git commit -m 'Add some AmazingFeature'`)
+4. **推送到分支** (`git push origin feature/AmazingFeature`)
+5. **发起 Pull Request**
 
 ## 📄 许可证
 
-MIT License
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
+
+## 🙏 致谢
+
+- **Cloudflare** - 提供强大的边缘计算平台
+- **React Router** - 现代化的路由解决方案
+- **Tailwind CSS** - 优秀的 CSS 框架
+- **Drizzle ORM** - 类型安全的 ORM
+
+## 📞 支持与反馈
+
+- 🐛 **Bug 报告**: [GitHub Issues](https://github.com/xn030523/Go-Email/issues)
+- 💡 **功能建议**: [GitHub Discussions](https://github.com/xn030523/Go-Email/discussions)
+- 📧 **邮件联系**: 通过项目临时邮箱服务联系
 
 ---
 
-使用 ❤️ 和 React Router v7 构建 - GoMail 临时邮箱服务。
+<div align="center">
+
+**⭐ 如果这个项目对您有帮助，请给我们一个 Star！⭐**
+
+**从 Smail 到 GoMail，我们一直在进步！🚀**
+
+</div>
+
+
