@@ -1,6 +1,6 @@
 /**
  * 🚀 GoMail 项目统一配置文件
- * 
+ *
  * 只需要修改这个文件，就能完成整个项目的配置和部署
  * 所有其他配置文件都会基于这个文件自动生成
  */
@@ -58,7 +58,7 @@ module.exports = {
   secrets: {
     // Session 密钥 - 运行 `openssl rand -base64 32` 生成
     sessionSecret: "AqVx9BFitbs47wFzgUjXTZh0L+I/fKQnXoQzA/cKuyw=",
-    
+
     // 百度统计配置
     baiduAnalytics: {
       id: "355b8986398209e644715a515d608df3",
@@ -68,7 +68,7 @@ module.exports = {
     // Google AdSense 配置
     googleAdsense: {
       clientId: "ca-pub-7869843338158511", // 您的 AdSense 客户端ID
-      enabled: true,
+      enabled: false,
       // 广告位配置
       adSlots: {
         // 页面顶部横幅广告
@@ -91,6 +91,22 @@ module.exports = {
         },
       },
     },
+  },
+
+  // 👤 管理员配置
+  admin: {
+    // 管理员账号配置 - 可以配置多个管理员
+    accounts: [
+      {
+        username: "admin",
+        password: "admin123456", // 建议使用强密码
+      },
+      // 可以添加更多管理员账号
+      // {
+      //   username: "admin2",
+      //   password: "another_strong_password",
+      // },
+    ],
   },
 
   // 📁 目录配置

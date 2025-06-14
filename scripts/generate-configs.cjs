@@ -2,7 +2,7 @@
 
 /**
  * 🚀 配置文件生成器
- * 
+ *
  * 根据 config.js 自动生成所有必要的配置文件
  * 运行: pnpm run generate-configs
  */
@@ -164,6 +164,10 @@ export const APP_CONFIG = {
         responsive: ${config.secrets.googleAdsense.adSlots.inContent.responsive},
       },
     },
+  },
+
+  admin: {
+    accounts: ${JSON.stringify(config.admin.accounts, null, 4)},
   },
 } as const;
 

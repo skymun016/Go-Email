@@ -65,7 +65,7 @@ export const APP_CONFIG = {
 
   adsense: {
     clientId: "ca-pub-7869843338158511",
-    enabled: true,
+    enabled: false,
     adSlots: {
       headerBanner: {
         slotId: "1234567890",
@@ -83,6 +83,15 @@ export const APP_CONFIG = {
         responsive: true,
       },
     },
+  },
+
+  admin: {
+    accounts: [
+    {
+        "username": "admin",
+        "password": "admin123456"
+    }
+],
   },
 } as const;
 

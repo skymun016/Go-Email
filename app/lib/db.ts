@@ -1,6 +1,7 @@
 import { and, count, desc, eq, gt, lt } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { nanoid } from "nanoid";
+import bcrypt from "bcryptjs";
 import {
 	type Attachment,
 	type Email,
@@ -8,9 +9,18 @@ import {
 	type NewAttachment,
 	type NewEmail,
 	type NewMailbox,
+	type ApiToken,
+	type NewApiToken,
+	type TokenUsageLog,
+	type NewTokenUsageLog,
+	type Admin,
+	type NewAdmin,
 	attachments,
 	emails,
 	mailboxes,
+	apiTokens,
+	tokenUsageLogs,
+	admins,
 } from "~/db/schema";
 import { APP_CONFIG } from "~/config/app";
 
@@ -19,7 +29,16 @@ export function createDB(database?: D1Database) {
 	if (!database) {
 		throw new Error("Database not available - database parameter is required");
 	}
-	return drizzle(database, { schema: { mailboxes, emails, attachments } });
+	return drizzle(database, {
+		schema: {
+			mailboxes,
+			emails,
+			attachments,
+			apiTokens,
+			tokenUsageLogs,
+			admins
+		}
+	});
 }
 
 // 通过邮箱地址获取或创建邮箱
@@ -132,8 +151,9 @@ export async function getEmailAttachments(
 export async function markEmailAsRead(
 	db: ReturnType<typeof createDB>,
 	emailId: string,
+	isRead: boolean = true,
 ): Promise<void> {
-	await db.update(emails).set({ isRead: true }).where(eq(emails.id, emailId));
+	await db.update(emails).set({ isRead }).where(eq(emails.id, emailId));
 }
 
 // 删除邮件
@@ -344,4 +364,271 @@ export async function storeEmail(
 	}
 
 	return emailId;
+}
+
+// ==================== API Token 管理 ====================
+
+// 创建新的API Token
+export async function createApiToken(
+	db: ReturnType<typeof createDB>,
+	tokenData: {
+		name: string;
+		usageLimit?: number;
+		expiresAt?: Date | null;
+	}
+): Promise<ApiToken> {
+	const tokenId = nanoid();
+	const token = `gm_${nanoid(32)}`; // 生成格式为 gm_xxx 的token
+
+	const newToken: NewApiToken = {
+		id: tokenId,
+		name: tokenData.name,
+		token,
+		usageLimit: tokenData.usageLimit || 0,
+		usageCount: 0,
+		isActive: true,
+		expiresAt: tokenData.expiresAt || null,
+	};
+
+	await db.insert(apiTokens).values(newToken);
+
+	const result = await db
+		.select()
+		.from(apiTokens)
+		.where(eq(apiTokens.id, tokenId))
+		.limit(1);
+
+	return result[0];
+}
+
+// 验证API Token
+export async function validateApiToken(
+	db: ReturnType<typeof createDB>,
+	token: string
+): Promise<ApiToken | null> {
+	const result = await db
+		.select()
+		.from(apiTokens)
+		.where(and(
+			eq(apiTokens.token, token),
+			eq(apiTokens.isActive, true)
+		))
+		.limit(1);
+
+	if (result.length === 0) {
+		return null;
+	}
+
+	const apiToken = result[0];
+
+	// 检查是否过期
+	if (apiToken.expiresAt && new Date() > apiToken.expiresAt) {
+		return null;
+	}
+
+	// 检查使用次数限制
+	if (apiToken.usageLimit > 0 && apiToken.usageCount >= apiToken.usageLimit) {
+		return null;
+	}
+
+	return apiToken;
+}
+
+// 使用API Token（增加使用次数）
+export async function useApiToken(
+	db: ReturnType<typeof createDB>,
+	tokenId: string,
+	email: string,
+	ipAddress?: string,
+	userAgent?: string
+): Promise<void> {
+	// 先获取当前使用次数
+	const currentToken = await db
+		.select({ usageCount: apiTokens.usageCount })
+		.from(apiTokens)
+		.where(eq(apiTokens.id, tokenId))
+		.limit(1);
+
+	if (currentToken.length === 0) {
+		throw new Error("Token not found");
+	}
+
+	// 增加使用次数
+	await db
+		.update(apiTokens)
+		.set({
+			usageCount: currentToken[0].usageCount + 1,
+			lastUsedAt: new Date(),
+		})
+		.where(eq(apiTokens.id, tokenId));
+
+	// 记录使用日志
+	const logId = nanoid();
+	const newLog: NewTokenUsageLog = {
+		id: logId,
+		tokenId,
+		email,
+		ipAddress: ipAddress || null,
+		userAgent: userAgent || null,
+	};
+
+	await db.insert(tokenUsageLogs).values(newLog);
+}
+
+// 获取所有API Token
+export async function getAllApiTokens(
+	db: ReturnType<typeof createDB>
+): Promise<ApiToken[]> {
+	return await db
+		.select()
+		.from(apiTokens)
+		.orderBy(desc(apiTokens.createdAt));
+}
+
+// 更新API Token
+export async function updateApiToken(
+	db: ReturnType<typeof createDB>,
+	tokenId: string,
+	updates: {
+		name?: string;
+		usageLimit?: number;
+		isActive?: boolean;
+		expiresAt?: Date | null;
+	}
+): Promise<void> {
+	await db
+		.update(apiTokens)
+		.set(updates)
+		.where(eq(apiTokens.id, tokenId));
+}
+
+// 删除API Token
+export async function deleteApiToken(
+	db: ReturnType<typeof createDB>,
+	tokenId: string
+): Promise<void> {
+	// 先删除相关的使用日志
+	await db
+		.delete(tokenUsageLogs)
+		.where(eq(tokenUsageLogs.tokenId, tokenId));
+
+	// 再删除token
+	await db
+		.delete(apiTokens)
+		.where(eq(apiTokens.id, tokenId));
+}
+
+// 获取Token使用统计
+export async function getTokenUsageStats(
+	db: ReturnType<typeof createDB>,
+	tokenId: string
+): Promise<{
+	totalUsage: number;
+	recentUsage: TokenUsageLog[];
+}> {
+	// 获取总使用次数
+	const totalResult = await db
+		.select({ count: count() })
+		.from(tokenUsageLogs)
+		.where(eq(tokenUsageLogs.tokenId, tokenId));
+
+	// 获取最近的使用记录
+	const recentUsage = await db
+		.select()
+		.from(tokenUsageLogs)
+		.where(eq(tokenUsageLogs.tokenId, tokenId))
+		.orderBy(desc(tokenUsageLogs.createdAt))
+		.limit(10);
+
+	return {
+		totalUsage: totalResult[0]?.count || 0,
+		recentUsage,
+	};
+}
+
+// ==================== 管理员管理 ====================
+
+// 创建管理员账号
+export async function createAdmin(
+	db: ReturnType<typeof createDB>,
+	username: string,
+	password: string
+): Promise<Admin> {
+	const adminId = nanoid();
+	const passwordHash = await bcrypt.hash(password, 10);
+
+	const newAdmin: NewAdmin = {
+		id: adminId,
+		username,
+		passwordHash,
+	};
+
+	await db.insert(admins).values(newAdmin);
+
+	const result = await db
+		.select()
+		.from(admins)
+		.where(eq(admins.id, adminId))
+		.limit(1);
+
+	return result[0];
+}
+
+// 验证管理员登录
+export async function validateAdmin(
+	db: ReturnType<typeof createDB>,
+	username: string,
+	password: string
+): Promise<Admin | null> {
+	const result = await db
+		.select()
+		.from(admins)
+		.where(eq(admins.username, username))
+		.limit(1);
+
+	if (result.length === 0) {
+		return null;
+	}
+
+	const admin = result[0];
+	const isValid = await bcrypt.compare(password, admin.passwordHash);
+
+	if (!isValid) {
+		return null;
+	}
+
+	// 更新最后登录时间
+	await db
+		.update(admins)
+		.set({ lastLoginAt: new Date() })
+		.where(eq(admins.id, admin.id));
+
+	return admin;
+}
+
+// 获取管理员信息
+export async function getAdminById(
+	db: ReturnType<typeof createDB>,
+	adminId: string
+): Promise<Admin | null> {
+	const result = await db
+		.select()
+		.from(admins)
+		.where(eq(admins.id, adminId))
+		.limit(1);
+
+	return result.length > 0 ? result[0] : null;
+}
+
+// 检查管理员是否存在
+export async function checkAdminExists(
+	db: ReturnType<typeof createDB>,
+	username: string
+): Promise<boolean> {
+	const result = await db
+		.select({ count: count() })
+		.from(admins)
+		.where(eq(admins.username, username));
+
+	return (result[0]?.count || 0) > 0;
 }

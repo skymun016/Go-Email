@@ -23,15 +23,15 @@ export function MailItem({
 	const domain = email.split("@")[1];
 
 	const formatDate = (dateString: string) => {
-		const date = new Date(dateString);
-		const now = new Date();
-		const diffTime = Math.abs(now.getTime() - date.getTime());
-		const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-		if (diffDays === 1) return "今天";
-		if (diffDays === 2) return "昨天";
-		if (diffDays <= 7) return `${diffDays - 1}天前`;
-		return date.toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
+		// 使用简单的字符串处理避免服务端和客户端不一致
+		try {
+			const date = new Date(dateString);
+			const month = date.getMonth() + 1;
+			const day = date.getDate();
+			return `${month}月${day}日`;
+		} catch {
+			return dateString;
+		}
 	};
 
 	return (

@@ -10,7 +10,7 @@ import {
 import type { Route } from "./+types/root";
 import "./app.css";
 import { APP_CONFIG } from "~/config/app";
-import { AdSenseScript } from "~/components/AdSense";
+
 
 // 全局默认 meta 配置
 export function meta() {
@@ -105,8 +105,10 @@ export const links: Route.LinksFunction = () => [
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
-	// 获取百度统计配置
-	const baiduAnalyticsId = APP_CONFIG.analytics.enabled ? APP_CONFIG.analytics.baiduId : null;
+	// 获取百度统计配置 - 使用固定值避免水合失败
+	const baiduAnalyticsId = APP_CONFIG.analytics.enabled && APP_CONFIG.analytics.baiduId !== "YOUR_BAIDU_ANALYTICS_ID"
+		? APP_CONFIG.analytics.baiduId
+		: null;
 	// 结构化数据 JSON
 	const structuredData = {
 		"@context": "https://schema.org",
@@ -156,8 +158,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 					}}
 				/>
 
-				{/* Google AdSense */}
-				<AdSenseScript />
+
 
 				{/* 百度统计 */}
 				{baiduAnalyticsId && (

@@ -20,7 +20,8 @@
     "db:reset": "wrangler d1 execute gomail-database --command=\"DROP TABLE IF EXISTS attachments; DROP TABLE IF EXISTS emails; DROP TABLE IF EXISTS mailboxes; DELETE FROM d1_migrations;\"",
     "test:email": "node scripts/test-email.js",
     "test:email:custom": "node scripts/test-email.js",
-    "generate-icons": "node scripts/generate-icons.cjs"
+    "generate-icons": "node scripts/generate-icons.cjs",
+    "init-admin": "node scripts/init-admin.cjs"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.10",
@@ -29,6 +30,7 @@
     "@radix-ui/react-slot": "^1.2.3",
     "@react-router/cloudflare": "^7.6.2",
     "@scaleway/random-name": "^5.1.1",
+    "bcryptjs": "^3.0.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.44.2",
@@ -46,6 +48,7 @@
     "@cloudflare/vite-plugin": "^1.5.0",
     "@react-router/dev": "^7.6.2",
     "@tailwindcss/vite": "^4.1.8",
+    "@types/bcryptjs": "^3.0.0",
     "@types/node": "^22.15.29",
     "@types/react": "^19.1.6",
     "@types/react-dom": "^19.1.5",

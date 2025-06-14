@@ -72,6 +72,64 @@ export const attachments = sqliteTable(
 	],
 );
 
+// API Token表 - 用于外部API访问控制
+export const apiTokens = sqliteTable(
+	"api_tokens",
+	{
+		id: text("id").primaryKey(),
+		name: text("name").notNull(), // Token名称/描述
+		token: text("token").notNull().unique(), // 实际的token值
+		usageLimit: integer("usage_limit").notNull().default(0), // 使用次数限制，0表示无限制
+		usageCount: integer("usage_count").notNull().default(0), // 已使用次数
+		isActive: integer("is_active", { mode: "boolean" }).notNull().default(true), // 是否启用
+		createdAt: integer("created_at", { mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+		lastUsedAt: integer("last_used_at", { mode: "timestamp" }), // 最后使用时间
+		expiresAt: integer("expires_at", { mode: "timestamp" }), // 过期时间，null表示永不过期
+	},
+	(table) => [
+		index("idx_api_tokens_token").on(table.token),
+		index("idx_api_tokens_is_active").on(table.isActive),
+	],
+);
+
+// Token使用日志表
+export const tokenUsageLogs = sqliteTable(
+	"token_usage_logs",
+	{
+		id: text("id").primaryKey(),
+		tokenId: text("token_id").notNull(),
+		email: text("email").notNull(), // 使用了哪个邮箱
+		ipAddress: text("ip_address"), // 调用者IP
+		userAgent: text("user_agent"), // 调用者UA
+		createdAt: integer("created_at", { mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+	},
+	(table) => [
+		index("idx_token_usage_logs_token_id").on(table.tokenId),
+		index("idx_token_usage_logs_created_at").on(table.createdAt),
+	],
+);
+
+// 管理员表
+export const admins = sqliteTable(
+	"admins",
+	{
+		id: text("id").primaryKey(),
+		username: text("username").notNull().unique(),
+		passwordHash: text("password_hash").notNull(),
+		createdAt: integer("created_at", { mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+		lastLoginAt: integer("last_login_at", { mode: "timestamp" }),
+	},
+	(table) => [
+		index("idx_admins_username").on(table.username),
+	],
+);
+
 // 定义关系 - 使用 relations 来表示表之间的关系，而不是数据库外键
 export const mailboxesRelations = relations(mailboxes, ({ many }) => ({
 	emails: many(emails),
@@ -91,6 +149,27 @@ export const attachmentsRelations = relations(attachments, ({ one }) => ({
 		references: [emails.id],
 	}),
 }));
+
+export const apiTokensRelations = relations(apiTokens, ({ many }) => ({
+	usageLogs: many(tokenUsageLogs),
+}));
+
+export const tokenUsageLogsRelations = relations(tokenUsageLogs, ({ one }) => ({
+	token: one(apiTokens, {
+		fields: [tokenUsageLogs.tokenId],
+		references: [apiTokens.id],
+	}),
+}));
+
+// 类型定义
+export type ApiToken = typeof apiTokens.$inferSelect;
+export type NewApiToken = typeof apiTokens.$inferInsert;
+
+export type TokenUsageLog = typeof tokenUsageLogs.$inferSelect;
+export type NewTokenUsageLog = typeof tokenUsageLogs.$inferInsert;
+
+export type Admin = typeof admins.$inferSelect;
+export type NewAdmin = typeof admins.$inferInsert;
 
 // 导出类型
 export type Mailbox = typeof mailboxes.$inferSelect;

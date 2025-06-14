@@ -70,7 +70,7 @@ export default {
 			// 存储邮件到数据库，附件存储到 R2
 			const emailId = await storeEmail(
 				db,
-				env.gomail_attachments, // R2 存储桶
+				env["gomail-attachments"], // R2 存储桶
 				mailbox.id,
 				parsedEmail,
 				rawEmail,

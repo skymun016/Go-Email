@@ -22,7 +22,7 @@ export function Footer({ env }: FooterProps) {
 			<div className="container mx-auto px-4 py-6">
 				<div className="text-center">
 					<div className="text-sm text-gray-400">
-						© {new Date().getFullYear()} {APP_CONFIG.project.displayName}. 保留所有权利.
+						© 2024 {APP_CONFIG.project.displayName}. 保留所有权利.
 					</div>
 					{/* 百度统计链接 */}
 					{analyticsConfig.enabled && analyticsConfig.id !== "YOUR_BAIDU_ANALYTICS_ID" && (

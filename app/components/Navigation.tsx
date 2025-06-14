@@ -10,6 +10,7 @@ export function Navigation({ currentPath = "/" }: { currentPath?: string }) {
 	const navItems = [
 		{ href: "/", label: "首页", description: "获取临时邮箱" },
 		{ href: "/about", label: "关于", description: `了解 ${APP_CONFIG.project.displayName}` },
+		{ href: "/api-docs", label: "API文档", description: "开发者接口文档" },
 		{ href: "/faq", label: "FAQ", description: "常见问题" },
 		{ href: "/contact", label: "联系", description: "联系我们" },
 	];

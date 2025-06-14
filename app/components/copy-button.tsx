@@ -25,6 +25,15 @@ export function CopyButton({ text, ...props }: CopyButtonProps) {
 		<Button
 			variant="outline"
 			onClick={() => {
+				// 确保在客户端环境中运行
+				if (typeof window === 'undefined' || !navigator.clipboard) {
+					setIcon("error");
+					setTimeout(() => {
+						setIcon("idle");
+					}, 2000);
+					return;
+				}
+
 				navigator.clipboard
 					.writeText(text)
 					.then(() => {

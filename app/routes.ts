@@ -9,6 +9,7 @@ export default [
 	layout("routes/layout.tsx", [
 		index("routes/home.tsx"),
 		route("/about", "routes/about.tsx"),
+		route("/api-docs", "routes/api-docs.tsx"),
 		route("/privacy", "routes/privacy.tsx"),
 		route("/terms", "routes/terms.tsx"),
 		route("/faq", "routes/faq.tsx"),
@@ -17,6 +18,23 @@ export default [
 	]),
 	route("/attachment/:id", "routes/attachment.$id.tsx"),
 	route("/dev/email-handler", "routes/dev.email-handler.tsx"),
+	route("/dev/init-admin", "routes/dev.init-admin.ts"),
+
+	// 管理员路由
+	route("/admin", "routes/admin.ts"),
+	route("/admin-login", "routes/admin-login.tsx"),
+	route("/admin/dashboard", "routes/admin.dashboard.tsx"),
+	route("/admin/tokens", "routes/admin.tokens.tsx"),
+	route("/admin/emails", "routes/admin.emails.tsx"),
+	route("/admin/settings", "routes/admin.settings.tsx"),
+	route("/admin/logout", "routes/admin.logout.ts"),
+
+	// 外部API路由
+	route("/api/external/mailbox", "routes/api.external.mailbox.ts"),
+	route("/api/external/emails/:email", "routes/api.external.emails.$email.ts"),
+	route("/api/external/email/:id", "routes/api.external.email.$id.ts"),
+	route("/api/external/attachment/:id", "routes/api.external.attachment.$id.ts"),
+
 	route("/sitemap.xml", "routes/sitemap[.]xml.tsx"),
 	route("/robots.txt", "routes/robots[.]txt.tsx"),
 	route("/site.webmanifest", "routes/site[.]webmanifest.tsx"),

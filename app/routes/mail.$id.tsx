@@ -102,20 +102,20 @@ function generateEmailHTML(email: {
 					const height = document.body.scrollHeight;
 					window.parent.postMessage({ type: 'resize', height }, '*');
 				}
-				
+
 				// 页面加载完成后调整高度
 				if (document.readyState === 'loading') {
 					document.addEventListener('DOMContentLoaded', resizeIframe);
 				} else {
 					resizeIframe();
 				}
-				
+
 				// 监听内容变化
 				const observer = new MutationObserver(resizeIframe);
-				observer.observe(document.body, { 
-					childList: true, 
+				observer.observe(document.body, {
+					childList: true,
 					subtree: true,
-					attributes: true 
+					attributes: true
 				});
 			</script>
 		</body>
@@ -261,15 +261,18 @@ export default function MailDetail({ loaderData }: Route.ComponentProps) {
 	const navigation = useNavigation();
 	const { email, attachments, emailHTML } = loaderData;
 
-	// 格式化日期
-	const formattedDate = new Date(email.receivedAt).toLocaleString("zh-CN", {
-		year: "numeric",
-		month: "long",
-		day: "numeric",
-		hour: "2-digit",
-		minute: "2-digit",
-		second: "2-digit",
-	});
+	// 格式化日期 - 使用固定格式避免水合失败
+	const formatDate = (date: Date) => {
+		const year = date.getFullYear();
+		const month = date.getMonth() + 1;
+		const day = date.getDate();
+		const hours = date.getHours().toString().padStart(2, '0');
+		const minutes = date.getMinutes().toString().padStart(2, '0');
+		const seconds = date.getSeconds().toString().padStart(2, '0');
+		return `${year}年${month}月${day}日 ${hours}:${minutes}:${seconds}`;
+	};
+
+	const formattedDate = formatDate(new Date(email.receivedAt));
 
 	// 处理 iframe 高度调整
 	const handleIframeMessage = React.useCallback((event: MessageEvent) => {

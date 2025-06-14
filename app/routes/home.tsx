@@ -1,6 +1,4 @@
-import randomName from "@scaleway/random-name";
-import { Loader2Icon, Mail, RefreshCcwIcon } from "lucide-react";
-import { customAlphabet } from "nanoid";
+import { Loader2Icon, Mail, RefreshCcwIcon, Shield } from "lucide-react";
 import React from "react";
 import {
 	Form,
@@ -13,6 +11,7 @@ import {
 
 import { commitSession, getSession } from "~/.server/session";
 import { CopyButton } from "~/components/copy-button";
+import { EmailDisplay } from "~/components/EmailDisplay";
 import { MailItem } from "~/components/mail-item";
 import { Button } from "~/components/ui/button";
 import {
@@ -30,7 +29,8 @@ import {
 	getOrCreateMailbox,
 } from "~/lib/db";
 import { APP_CONFIG, getDatabase } from "~/config/app";
-import { HeaderBannerAd, InContentAd } from "~/components/AdSense";
+import { generateRandomEmail } from "~/lib/email-generator";
+
 
 import type { Route } from "./+types/home";
 
@@ -92,19 +92,16 @@ export function meta(_: Route.MetaArgs) {
 	];
 }
 
-function generateEmail() {
-	const name = randomName();
-	const random = customAlphabet("0123456789", 4)();
-	return `${name}-${random}@${APP_CONFIG.cloudflare.email.domain}`;
-}
+
 
 export async function loader({ request, context }: Route.LoaderArgs) {
 	// 检查是否在 Cloudflare 环境中
 	const env = context?.cloudflare?.env;
 
-	// 如果没有 Cloudflare 环境（开发环境），返回模拟数据
+	// 如果没有 Cloudflare 环境（开发环境），返回固定的模拟数据
 	if (!env) {
-		const email = generateEmail();
+		// 使用固定的邮箱地址避免水合失败
+		const email = `demo-user-1234@${APP_CONFIG.cloudflare.email.domain}`;
 		return {
 			email,
 			mails: [],
@@ -117,7 +114,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 		let email = session.get("email");
 
 		if (!email) {
-			email = generateEmail();
+			email = generateRandomEmail();
 			session.set("email", email);
 			return data(
 				{
@@ -163,7 +160,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 		let email = session.get("email");
 
 		if (!email) {
-			email = generateEmail();
+			email = generateRandomEmail();
 			session.set("email", email);
 			return data(
 				{
@@ -203,7 +200,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 		if (env) {
 			try {
 				const session = await getSession(request.headers.get("Cookie"), env);
-				session.set("email", generateEmail());
+				session.set("email", generateRandomEmail());
 				await commitSession(session, env);
 			} catch (error) {
 				console.error("Error updating session:", error);
@@ -228,6 +225,9 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
 	// 自动刷新逻辑 - 每30秒自动重新验证数据
 	React.useEffect(() => {
+		// 确保在客户端环境中运行
+		if (typeof window === 'undefined') return;
+
 		const interval = setInterval(() => {
 			// 只有在页面可见且没有正在进行其他操作时才自动刷新
 			if (
@@ -291,8 +291,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 						</div>
 					</div>
 
-					{/* 顶部横幅广告 */}
-					<HeaderBannerAd className="mb-8" />
+
 
 					<div className="grid lg:grid-cols-2 gap-8">
 						{/* 左侧：邮箱地址 */}
@@ -327,9 +326,10 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 												您的专属临时邮箱地址
 											</p>
 											<div className="bg-white rounded-lg p-4 shadow-sm border border-blue-200">
-												<span className="font-mono text-lg sm:text-xl font-bold text-gray-900 tracking-wide select-all break-all block">
-													{loaderData.email}
-												</span>
+												<EmailDisplay
+													email={loaderData.email}
+													className="font-mono text-lg sm:text-xl font-bold text-gray-900 tracking-wide select-all break-all block"
+												/>
 											</div>
 										</div>
 									</div>
@@ -464,9 +464,12 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 													<p className="text-sm text-center text-blue-700 font-medium">
 														💌 测试邮箱地址
 													</p>
-													<p className="text-xs text-center text-gray-600 mt-1 font-mono break-all bg-white rounded px-2 py-1">
-														{loaderData.email}
-													</p>
+													<div className="text-xs text-center text-gray-600 mt-1 font-mono break-all bg-white rounded px-2 py-1">
+														<EmailDisplay
+															email={loaderData.email}
+															className="text-xs"
+														/>
+													</div>
 												</div>
 											</div>
 										)}
@@ -476,8 +479,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 						</div>
 					</div>
 
-					{/* 内容广告 */}
-					<InContentAd className="mt-16 mb-8" />
+
 
 					{/* Features Section */}
 					<div className="mt-20">
@@ -523,6 +525,19 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 									</p>
 								</CardContent>
 							</Card>
+						</div>
+					</div>
+
+					{/* 管理员入口 */}
+					<div className="mt-16 text-center">
+						<div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors">
+							<Link
+								to="/admin-login"
+								className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+							>
+								<Shield className="w-4 h-4" />
+								管理员登录
+							</Link>
 						</div>
 					</div>
 				</div>
