@@ -32,12 +32,53 @@ function createApiResponse<T>(
 	};
 }
 
+// 创建JSON响应（带CORS头）
+function createJsonResponse(body: string, status: number = 200): Response {
+	return new Response(body, {
+		status,
+		headers: {
+			"Content-Type": "application/json",
+			'Access-Control-Allow-Origin': '*',
+			'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+			'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+		},
+	});
+}
+
 // ==================== API 处理函数 ====================
+
+// OPTIONS - 处理预检请求
+export async function options() {
+	return new Response(null, {
+		status: 204,
+		headers: {
+			'Access-Control-Allow-Origin': '*',
+			'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+			'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+			'Access-Control-Max-Age': '86400'
+		}
+	});
+}
+
+
 
 // POST /api/external/mailbox - 创建临时邮箱（外部API）
 export async function action({ request, context }: any) {
 	try {
 		const env = context.cloudflare.env;
+
+		// 如果是OPTIONS请求，直接返回CORS头
+		if (request.method === 'OPTIONS') {
+			return new Response(null, {
+				status: 204,
+				headers: {
+					'Access-Control-Allow-Origin': '*',
+					'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+					'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+					'Access-Control-Max-Age': '86400'
+				}
+			});
+		}
 
 		// 验证API Token
 		const apiToken = await requireApiToken(request, env);
@@ -47,12 +88,9 @@ export async function action({ request, context }: any) {
 		const tokenStatus = await tokenManager.isTokenUsable(apiToken.token);
 
 		if (!tokenStatus.usable) {
-			return new Response(
+			return createJsonResponse(
 				JSON.stringify(createApiResponse(false, null, tokenStatus.reason)),
-				{
-					status: 403,
-					headers: { "Content-Type": "application/json" }
-				}
+				403
 			);
 		}
 
@@ -98,18 +136,14 @@ export async function action({ request, context }: any) {
 			isActive: mailbox.isActive,
 		};
 
-		return new Response(
+		return createJsonResponse(
 			JSON.stringify(createApiResponse(
 				true,
 				responseData,
 				undefined,
 				"Mailbox created successfully",
 				remainingUsage
-			)),
-			{
-				status: 200,
-				headers: { "Content-Type": "application/json" }
-			}
+			))
 		);
 
 	} catch (error) {
@@ -120,12 +154,9 @@ export async function action({ request, context }: any) {
 			return error;
 		}
 
-		return new Response(
+		return createJsonResponse(
 			JSON.stringify(createApiResponse(false, null, "Internal server error")),
-			{
-				status: 500,
-				headers: { "Content-Type": "application/json" }
-			}
+			500
 		);
 	}
 }
@@ -134,6 +165,19 @@ export async function action({ request, context }: any) {
 export async function loader({ request, context }: any) {
 	try {
 		const env = context.cloudflare.env;
+
+		// 如果是OPTIONS请求，直接返回CORS头
+		if (request.method === 'OPTIONS') {
+			return new Response(null, {
+				status: 204,
+				headers: {
+					'Access-Control-Allow-Origin': '*',
+					'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+					'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+					'Access-Control-Max-Age': '86400'
+				}
+			});
+		}
 
 		// 验证API Token
 		const apiToken = await requireApiToken(request, env);
@@ -157,12 +201,8 @@ export async function loader({ request, context }: any) {
 			reason: tokenStatus.reason,
 		};
 
-		return new Response(
-			JSON.stringify(createApiResponse(true, responseData, undefined, "Token information retrieved")),
-			{
-				status: 200,
-				headers: { "Content-Type": "application/json" }
-			}
+		return createJsonResponse(
+			JSON.stringify(createApiResponse(true, responseData, undefined, "Token information retrieved"))
 		);
 
 	} catch (error) {
@@ -173,12 +213,9 @@ export async function loader({ request, context }: any) {
 			return error;
 		}
 
-		return new Response(
+		return createJsonResponse(
 			JSON.stringify(createApiResponse(false, null, "Internal server error")),
-			{
-				status: 500,
-				headers: { "Content-Type": "application/json" }
-			}
+			500
 		);
 	}
 }

@@ -5,7 +5,7 @@
 # React Router
 /.react-router/
 /build/
-
+/auto-augment/
 # Cloudflare
 .mf
 .wrangler

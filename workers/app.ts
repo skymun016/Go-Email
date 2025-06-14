@@ -22,6 +22,21 @@ const requestHandler = createRequestHandler(
 	import.meta.env.MODE,
 );
 
+// 全局CORS中间件
+function addCorsHeaders(response: Response): Response {
+	const headers = new Headers(response.headers);
+	headers.set('Access-Control-Allow-Origin', '*');
+	headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+	headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+	headers.set('Access-Control-Max-Age', '86400');
+
+	return new Response(response.body, {
+		status: response.status,
+		statusText: response.statusText,
+		headers
+	});
+}
+
 interface ParsedEmail {
 	messageId?: string;
 	from?: {
@@ -47,9 +62,49 @@ interface ParsedEmail {
 
 export default {
 	async fetch(request, env, ctx) {
-		return requestHandler(request, {
-			cloudflare: { env, ctx },
-		});
+		const url = new URL(request.url);
+
+		// 完全拦截所有API路由的OPTIONS预检请求，不让它到达React Router
+		if (request.method === 'OPTIONS') {
+			// 检查是否是API路由
+			if (url.pathname.startsWith('/api/external/') ||
+				url.pathname.startsWith('/api/')) {
+				console.log('Handling OPTIONS request for:', url.pathname);
+				return new Response(null, {
+					status: 204,
+					headers: {
+						'Access-Control-Allow-Origin': '*',
+						'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+						'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+						'Access-Control-Max-Age': '86400'
+					}
+				});
+			}
+		}
+
+		try {
+			const response = await requestHandler(request, {
+				cloudflare: { env, ctx },
+			});
+
+			// 为所有响应添加CORS头
+			return addCorsHeaders(response);
+		} catch (error) {
+			console.error('Request handler error:', error);
+			// 如果是API路由出错，返回带CORS头的错误响应
+			if (url.pathname.startsWith('/api/')) {
+				return new Response(JSON.stringify({ error: 'Internal server error' }), {
+					status: 500,
+					headers: {
+						'Content-Type': 'application/json',
+						'Access-Control-Allow-Origin': '*',
+						'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+						'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+					}
+				});
+			}
+			throw error;
+		}
 	},
 	async email(
 		message: ForwardableEmailMessage,

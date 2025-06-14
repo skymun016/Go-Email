@@ -25,6 +25,25 @@ interface EmailSummary {
 
 // ==================== 工具函数 ====================
 
+// CORS头部
+const CORS_HEADERS = {
+	'Access-Control-Allow-Origin': '*',
+	'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+	'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+	'Access-Control-Max-Age': '86400'
+};
+
+// 创建带CORS的JSON响应
+function createJsonResponse(body: string, status: number = 200): Response {
+	return new Response(body, {
+		status,
+		headers: {
+			"Content-Type": "application/json",
+			...CORS_HEADERS
+		},
+	});
+}
+
 function createApiResponse<T>(
 	success: boolean,
 	data?: T,
@@ -43,6 +62,14 @@ function createApiResponse<T>(
 
 // ==================== API 处理函数 ====================
 
+// OPTIONS - 处理预检请求
+export async function options() {
+	return new Response(null, {
+		status: 204,
+		headers: CORS_HEADERS
+	});
+}
+
 // GET /api/external/emails/:email - 获取邮箱的邮件列表（外部API）
 export async function loader({ request, params, context }: any) {
 	try {
@@ -51,12 +78,9 @@ export async function loader({ request, params, context }: any) {
 
 		// 验证邮箱地址
 		if (!email) {
-			return new Response(
+			return createJsonResponse(
 				JSON.stringify(createApiResponse(false, null, "Email address is required")),
-				{
-					status: 400,
-					headers: { "Content-Type": "application/json" }
-				}
+				400
 			);
 		}
 
@@ -68,12 +92,9 @@ export async function loader({ request, params, context }: any) {
 		const tokenStatus = await tokenManager.isTokenUsable(apiToken.token);
 
 		if (!tokenStatus.usable) {
-			return new Response(
+			return createJsonResponse(
 				JSON.stringify(createApiResponse(false, null, tokenStatus.reason)),
-				{
-					status: 403,
-					headers: { "Content-Type": "application/json" }
-				}
+				403
 			);
 		}
 
@@ -114,18 +135,14 @@ export async function loader({ request, params, context }: any) {
 			emails: emailSummaries,
 		};
 
-		return new Response(
+		return createJsonResponse(
 			JSON.stringify(createApiResponse(
 				true,
 				responseData,
 				undefined,
 				`Found ${emailSummaries.length} emails`,
 				remainingUsage
-			)),
-			{
-				status: 200,
-				headers: { "Content-Type": "application/json" }
-			}
+			))
 		);
 
 	} catch (error) {
@@ -136,12 +153,9 @@ export async function loader({ request, params, context }: any) {
 			return error;
 		}
 
-		return new Response(
+		return createJsonResponse(
 			JSON.stringify(createApiResponse(false, null, "Internal server error")),
-			{
-				status: 500,
-				headers: { "Content-Type": "application/json" }
-			}
+			500
 		);
 	}
 }
