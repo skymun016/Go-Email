@@ -23,6 +23,7 @@ wrangler.jsonc
 .env.production
 config.cjs
 
+
 # 自动生成的配置文件 (包含隐私信息)
 app/config/app.ts
 DEPLOYMENT.md
