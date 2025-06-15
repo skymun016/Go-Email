@@ -24,57 +24,94 @@ import {
 } from "~/db/schema";
 import { APP_CONFIG } from "~/config/app";
 
-// 创建 drizzle 实例
+// 创建 drizzle 实例（增强错误处理）
 export function createDB(database?: D1Database) {
 	if (!database) {
-		throw new Error("Database not available - database parameter is required");
+		const error = new Error("Database not available - database parameter is required");
+		console.error("❌ 数据库连接失败:", error.message);
+		throw error;
 	}
-	return drizzle(database, {
-		schema: {
-			mailboxes,
-			emails,
-			attachments,
-			apiTokens,
-			tokenUsageLogs,
-			admins
-		}
-	});
+
+	try {
+		return drizzle(database, {
+			schema: {
+				mailboxes,
+				emails,
+				attachments,
+				apiTokens,
+				tokenUsageLogs,
+				admins
+			}
+		});
+	} catch (error) {
+		console.error("❌ 创建数据库实例失败:", error);
+		throw new Error(`Failed to create database instance: ${error instanceof Error ? error.message : 'Unknown error'}`);
+	}
 }
 
-// 通过邮箱地址获取或创建邮箱
+// 通过邮箱地址获取或创建邮箱（增强错误处理）
 export async function getOrCreateMailbox(
 	db: ReturnType<typeof createDB>,
 	email: string,
 ): Promise<Mailbox> {
-	const now = new Date();
-
-	// 先查找现有邮箱
-	const existing = await db
-		.select()
-		.from(mailboxes)
-		.where(and(eq(mailboxes.email, email), gt(mailboxes.expiresAt, now)))
-		.limit(1);
-
-	if (existing.length > 0) {
-		return existing[0];
+	if (!email || typeof email !== 'string') {
+		throw new Error("Invalid email address provided");
 	}
 
-	// 创建新邮箱（根据配置设置过期时间）
-	const expiresAt = new Date(Date.now() + APP_CONFIG.email.expirationHours * 60 * 60 * 1000);
+	// 基本邮箱格式验证
+	const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+	if (!emailRegex.test(email)) {
+		throw new Error(`Invalid email format: ${email}`);
+	}
 
-	const newMailbox: NewMailbox = {
-		id: nanoid(),
-		email,
-		expiresAt,
-		isActive: true,
-	};
+	const now = new Date();
 
-	await db.insert(mailboxes).values(newMailbox);
+	try {
+		// 先查找现有邮箱
+		const existing = await db
+			.select()
+			.from(mailboxes)
+			.where(and(eq(mailboxes.email, email), gt(mailboxes.expiresAt, now)))
+			.limit(1);
 
-	return {
-		...newMailbox,
-		createdAt: now,
-	} as Mailbox;
+		if (existing.length > 0) {
+			console.log(`📦 找到现有邮箱: ${email}`);
+			return existing[0];
+		}
+
+		// 创建新邮箱（根据配置设置过期时间）
+		const expiresAt = new Date(Date.now() + APP_CONFIG.email.expirationHours * 60 * 60 * 1000);
+
+		const newMailbox: NewMailbox = {
+			id: nanoid(),
+			email,
+			expiresAt,
+			isActive: true,
+		};
+
+		await db.insert(mailboxes).values(newMailbox);
+
+		console.log(`✅ 创建新邮箱: ${email}, 过期时间: ${expiresAt.toISOString()}`);
+
+		return {
+			...newMailbox,
+			createdAt: now,
+		} as Mailbox;
+
+	} catch (error) {
+		console.error(`❌ 获取或创建邮箱失败 (${email}):`, error);
+
+		if (error instanceof Error) {
+			// 如果是我们抛出的验证错误，直接重新抛出
+			if (error.message.includes('Invalid email')) {
+				throw error;
+			}
+			// 数据库相关错误
+			throw new Error(`Database operation failed for email ${email}: ${error.message}`);
+		}
+
+		throw new Error(`Unknown error occurred while processing email: ${email}`);
+	}
 }
 
 // 获取邮箱的邮件列表
@@ -164,14 +201,75 @@ export async function deleteEmail(
 	await db.delete(emails).where(eq(emails.id, emailId));
 }
 
-// 清理过期邮箱和邮件
+// 清理过期邮箱和邮件（优化版本）
 export async function cleanupExpiredEmails(
 	db: ReturnType<typeof createDB>,
-): Promise<void> {
+): Promise<{ deletedMailboxes: number; deletedEmails: number; deletedAttachments: number }> {
 	const now = new Date();
+	let deletedMailboxes = 0;
+	let deletedEmails = 0;
+	let deletedAttachments = 0;
 
-	// 删除过期的邮箱（CASCADE 会自动删除相关邮件和附件）
-	await db.delete(mailboxes).where(lt(mailboxes.expiresAt, now));
+	try {
+		// 分批处理，避免长时间锁定数据库
+		const batchSize = 100;
+		let hasMore = true;
+
+		while (hasMore) {
+			// 获取一批过期的邮箱
+			const expiredMailboxes = await db
+				.select({ id: mailboxes.id })
+				.from(mailboxes)
+				.where(lt(mailboxes.expiresAt, now))
+				.limit(batchSize);
+
+			if (expiredMailboxes.length === 0) {
+				hasMore = false;
+				break;
+			}
+
+			const mailboxIds = expiredMailboxes.map(m => m.id);
+
+			// 先删除相关的附件
+			const attachmentResult = await db
+				.delete(attachments)
+				.where(
+					eq(attachments.emailId,
+						db.select({ id: emails.id })
+							.from(emails)
+							.where(eq(emails.mailboxId, mailboxIds[0])) // 简化查询
+					)
+				);
+
+			// 删除相关的邮件
+			const emailResult = await db
+				.delete(emails)
+				.where(eq(emails.mailboxId, mailboxIds[0]));
+
+			// 删除邮箱
+			const mailboxResult = await db
+				.delete(mailboxes)
+				.where(eq(mailboxes.id, mailboxIds[0]));
+
+			deletedMailboxes += mailboxIds.length;
+
+			// 如果批次小于限制，说明没有更多数据了
+			if (expiredMailboxes.length < batchSize) {
+				hasMore = false;
+			}
+
+			// 添加小延迟，避免过度占用资源
+			await new Promise(resolve => setTimeout(resolve, 10));
+		}
+
+		console.log(`🧹 清理完成: 删除了 ${deletedMailboxes} 个邮箱, ${deletedEmails} 封邮件, ${deletedAttachments} 个附件`);
+
+		return { deletedMailboxes, deletedEmails, deletedAttachments };
+
+	} catch (error) {
+		console.error("❌ 清理过期邮件失败:", error);
+		throw error;
+	}
 }
 
 // 获取邮箱统计信息
@@ -401,37 +499,58 @@ export async function createApiToken(
 	return result[0];
 }
 
-// 验证API Token
+// 验证API Token（增强错误处理）
 export async function validateApiToken(
 	db: ReturnType<typeof createDB>,
 	token: string
 ): Promise<ApiToken | null> {
-	const result = await db
-		.select()
-		.from(apiTokens)
-		.where(and(
-			eq(apiTokens.token, token),
-			eq(apiTokens.isActive, true)
-		))
-		.limit(1);
-
-	if (result.length === 0) {
+	if (!token || typeof token !== 'string') {
+		console.warn("⚠️ Token验证失败: 无效的token格式");
 		return null;
 	}
 
-	const apiToken = result[0];
-
-	// 检查是否过期
-	if (apiToken.expiresAt && new Date() > apiToken.expiresAt) {
+	// 验证token格式
+	if (!token.startsWith('gm_') || token.length !== 35) {
+		console.warn(`⚠️ Token验证失败: 格式不正确 (${token.substring(0, 10)}...)`);
 		return null;
 	}
 
-	// 检查使用次数限制
-	if (apiToken.usageLimit > 0 && apiToken.usageCount >= apiToken.usageLimit) {
+	try {
+		const result = await db
+			.select()
+			.from(apiTokens)
+			.where(and(
+				eq(apiTokens.token, token),
+				eq(apiTokens.isActive, true)
+			))
+			.limit(1);
+
+		if (result.length === 0) {
+			console.warn(`⚠️ Token验证失败: Token不存在或已禁用 (${token.substring(0, 10)}...)`);
+			return null;
+		}
+
+		const apiToken = result[0];
+
+		// 检查是否过期
+		if (apiToken.expiresAt && new Date() > apiToken.expiresAt) {
+			console.warn(`⚠️ Token验证失败: Token已过期 (${apiToken.name})`);
+			return null;
+		}
+
+		// 检查使用次数限制
+		if (apiToken.usageLimit > 0 && apiToken.usageCount >= apiToken.usageLimit) {
+			console.warn(`⚠️ Token验证失败: 使用次数已达上限 (${apiToken.name}: ${apiToken.usageCount}/${apiToken.usageLimit})`);
+			return null;
+		}
+
+		console.log(`✅ Token验证成功: ${apiToken.name} (剩余: ${apiToken.usageLimit > 0 ? apiToken.usageLimit - apiToken.usageCount : '无限制'})`);
+		return apiToken;
+
+	} catch (error) {
+		console.error(`❌ Token验证过程中发生错误:`, error);
 		return null;
 	}
-
-	return apiToken;
 }
 
 // 使用API Token（增加使用次数）

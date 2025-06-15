@@ -4,6 +4,11 @@ import { TokenManager } from "~/lib/token-manager";
 import { getDatabase } from "~/config/app";
 import { formatTokenForDisplay } from "~/lib/token-manager";
 
+// 定义action返回类型
+type ActionResult =
+	| { error: string }
+	| { success: string; newToken?: any };
+
 export function meta() {
 	return [
 		{ title: "Token 管理 - GoMail 管理后台" },
@@ -15,14 +20,14 @@ export function meta() {
 export async function loader({ request, context }: any) {
 	try {
 		const env = context.cloudflare.env;
-		
+
 		// 验证管理员身份
 		const admin = await requireAdmin(request, env);
-		
+
 		// 获取所有Token
 		const tokenManager = new TokenManager(getDatabase(env));
 		const tokens = await tokenManager.getAllTokens();
-		
+
 		return {
 			admin: { username: admin.username },
 			tokens: tokens.map(token => ({
@@ -36,51 +41,51 @@ export async function loader({ request, context }: any) {
 
 	} catch (error) {
 		console.error("Tokens page error:", error);
-		
+
 		// 如果是认证错误，重定向到登录页
 		if (error instanceof Response && error.status === 401) {
 			return redirect("/admin-login");
 		}
-		
+
 		throw error;
 	}
 }
 
 // 处理Token操作
-export async function action({ request, context }: any) {
+export async function action({ request, context }: any): Promise<ActionResult> {
 	try {
 		const env = context.cloudflare.env;
-		
+
 		// 验证管理员身份
 		await requireAdmin(request, env);
-		
+
 		const formData = await request.formData();
 		const action = formData.get("action")?.toString();
 		const tokenId = formData.get("tokenId")?.toString();
-		
+
 		const tokenManager = new TokenManager(getDatabase(env));
-		
+
 		switch (action) {
 			case "create":
 				const name = formData.get("name")?.toString();
 				const usageLimit = parseInt(formData.get("usageLimit")?.toString() || "0");
 				const expiresInDays = parseInt(formData.get("expiresInDays")?.toString() || "0");
-				
+
 				if (!name) {
 					return { error: "Token名称不能为空" };
 				}
-				
-				const expiresAt = expiresInDays > 0 
+
+				const expiresAt = expiresInDays > 0
 					? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000)
 					: null;
-				
+
 				const newToken = await tokenManager.generateToken({
 					name,
 					usageLimit: usageLimit > 0 ? usageLimit : undefined,
 					expiresAt,
 				});
-				
-				return { 
+
+				return {
 					success: "Token创建成功",
 					newToken: {
 						...newToken,
@@ -88,42 +93,42 @@ export async function action({ request, context }: any) {
 						expiresAt: newToken.expiresAt?.toISOString() || null,
 					}
 				};
-				
+
 			case "toggle":
 				if (!tokenId) {
 					return { error: "Token ID不能为空" };
 				}
-				
+
 				const tokens = await tokenManager.getAllTokens();
 				const token = tokens.find(t => t.id === tokenId);
-				
+
 				if (!token) {
 					return { error: "Token不存在" };
 				}
-				
+
 				await tokenManager.updateToken(tokenId, { isActive: !token.isActive });
 				return { success: `Token已${token.isActive ? "禁用" : "启用"}` };
-				
+
 			case "delete":
 				if (!tokenId) {
 					return { error: "Token ID不能为空" };
 				}
-				
+
 				await tokenManager.deleteToken(tokenId);
 				return { success: "Token已删除" };
-				
+
 			case "reset":
 				if (!tokenId) {
 					return { error: "Token ID不能为空" };
 				}
-				
+
 				await tokenManager.resetTokenUsage(tokenId);
 				return { success: "Token使用次数已重置" };
-				
+
 			default:
 				return { error: "未知操作" };
 		}
-		
+
 	} catch (error) {
 		console.error("Token action error:", error);
 		return { error: "操作失败，请稍后重试" };
@@ -132,6 +137,11 @@ export async function action({ request, context }: any) {
 
 export default function AdminTokens({ loaderData, actionData }: any) {
 	const { admin, tokens } = loaderData;
+
+	// 类型安全的actionData访问
+	const hasError = actionData && 'error' in actionData;
+	const hasSuccess = actionData && 'success' in actionData;
+	const hasNewToken = actionData && 'newToken' in actionData;
 
 	return (
 		<div className="min-h-screen bg-gray-100">
@@ -158,20 +168,20 @@ export default function AdminTokens({ loaderData, actionData }: any) {
 			{/* 主要内容 */}
 			<div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
 				{/* 消息提示 */}
-				{actionData?.error && (
+				{hasError && (
 					<div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-						{actionData.error}
+						{(actionData as { error: string }).error}
 					</div>
 				)}
-				{actionData?.success && (
+				{hasSuccess && (
 					<div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
-						{actionData.success}
+						{(actionData as { success: string }).success}
 					</div>
 				)}
-				{actionData?.newToken && (
+				{hasNewToken && (
 					<div className="mb-4 p-4 bg-blue-100 border border-blue-400 text-blue-700 rounded">
 						<p className="font-medium">新Token已创建：</p>
-						<p className="font-mono text-sm mt-1 break-all">{actionData.newToken.token}</p>
+						<p className="font-mono text-sm mt-1 break-all">{(actionData as { newToken: any }).newToken.token}</p>
 						<p className="text-sm mt-1 text-blue-600">请妥善保存此Token，它不会再次显示</p>
 					</div>
 				)}
@@ -275,8 +285,8 @@ export default function AdminTokens({ loaderData, actionData }: any) {
 											</td>
 											<td className="px-6 py-4 whitespace-nowrap">
 												<span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-													token.isActive 
-														? "bg-green-100 text-green-800" 
+													token.isActive
+														? "bg-green-100 text-green-800"
 														: "bg-red-100 text-red-800"
 												}`}>
 													{token.isActive ? "活跃" : "禁用"}
@@ -292,8 +302,8 @@ export default function AdminTokens({ loaderData, actionData }: any) {
 													<button
 														type="submit"
 														className={`text-sm ${
-															token.isActive 
-																? "text-red-600 hover:text-red-500" 
+															token.isActive
+																? "text-red-600 hover:text-red-500"
 																: "text-green-600 hover:text-green-500"
 														}`}
 													>

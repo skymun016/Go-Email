@@ -2,7 +2,7 @@ import { createCookie, createMemorySessionStorage } from "react-router";
 import { createWorkersKVSessionStorage } from "@react-router/cloudflare";
 import bcrypt from "bcryptjs";
 import { getKVNamespace } from "~/config/app";
-import { createDB, validateAdmin, validateApiToken } from "~/lib/db";
+import { createDB, validateApiToken } from "~/lib/db";
 
 // ==================== Session 管理 ====================
 
@@ -94,11 +94,11 @@ export async function requireAdmin(request: Request, env: Env) {
 // API Token认证中间件
 export async function requireApiToken(request: Request, env: Env) {
 	const authHeader = request.headers.get("Authorization");
-	
+
 	if (!authHeader || !authHeader.startsWith("Bearer ")) {
 		throw new Response(
 			JSON.stringify({ error: "Missing or invalid Authorization header" }),
-			{ 
+			{
 				status: 401,
 				headers: { "Content-Type": "application/json" }
 			}
@@ -107,13 +107,13 @@ export async function requireApiToken(request: Request, env: Env) {
 
 	const token = authHeader.substring(7); // 移除 "Bearer " 前缀
 	const db = createDB(env.DB);
-	
+
 	const apiToken = await validateApiToken(db, token);
-	
+
 	if (!apiToken) {
 		throw new Response(
 			JSON.stringify({ error: "Invalid or expired token" }),
-			{ 
+			{
 				status: 401,
 				headers: { "Content-Type": "application/json" }
 			}
@@ -129,11 +129,11 @@ export async function requireApiToken(request: Request, env: Env) {
 export function generateSecurePassword(length: number = 12): string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
 	let password = "";
-	
+
 	for (let i = 0; i < length; i++) {
 		password += charset.charAt(Math.floor(Math.random() * charset.length));
 	}
-	
+
 	return password;
 }
 
@@ -143,23 +143,23 @@ export function validatePasswordStrength(password: string): {
 	errors: string[];
 } {
 	const errors: string[] = [];
-	
+
 	if (password.length < 8) {
 		errors.push("密码长度至少8位");
 	}
-	
+
 	if (!/[a-z]/.test(password)) {
 		errors.push("密码必须包含小写字母");
 	}
-	
+
 	if (!/[A-Z]/.test(password)) {
 		errors.push("密码必须包含大写字母");
 	}
-	
+
 	if (!/[0-9]/.test(password)) {
 		errors.push("密码必须包含数字");
 	}
-	
+
 	return {
 		isValid: errors.length === 0,
 		errors,

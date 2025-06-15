@@ -42,6 +42,13 @@ export const emails = sqliteTable(
 		index("idx_emails_mailbox_id").on(table.mailboxId),
 		index("idx_emails_received_at").on(table.receivedAt),
 		index("idx_emails_is_read").on(table.isRead),
+		// 复合索引优化常用查询
+		index("idx_emails_mailbox_received").on(table.mailboxId, table.receivedAt),
+		index("idx_emails_mailbox_read").on(table.mailboxId, table.isRead),
+		// 优化按发件人查询
+		index("idx_emails_from_address").on(table.fromAddress),
+		// 优化按收件人查询
+		index("idx_emails_to_address").on(table.toAddress),
 	],
 );
 
@@ -91,6 +98,10 @@ export const apiTokens = sqliteTable(
 	(table) => [
 		index("idx_api_tokens_token").on(table.token),
 		index("idx_api_tokens_is_active").on(table.isActive),
+		// 复合索引优化Token验证查询
+		index("idx_api_tokens_active_expires").on(table.isActive, table.expiresAt),
+		// 优化使用统计查询
+		index("idx_api_tokens_usage").on(table.usageCount, table.usageLimit),
 	],
 );
 
