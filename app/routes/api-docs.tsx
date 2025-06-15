@@ -1,4 +1,4 @@
-import { Copy, Code, Key, Mail, Download, Info } from "lucide-react";
+import { Copy, Code, Key, Mail, Download, Info, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import {
@@ -58,15 +58,24 @@ export default function ApiDocs() {
 			{/* Hero Section */}
 			<section className="py-8 sm:py-16 bg-white">
 				<div className="max-w-4xl mx-auto px-4 text-center">
-					<div className="flex justify-center mb-6">
+					<div className="flex justify-center items-center gap-4 mb-6">
 						<div className="bg-gradient-to-r from-blue-100 to-cyan-100 p-4 rounded-full">
 							<Code className="w-8 h-8 text-blue-600" />
 						</div>
+						<a
+							href="https://github.com/xn030523/Go-Email"
+							target="_blank"
+							rel="noopener noreferrer"
+							className="flex items-center gap-2 bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-lg transition-colors"
+						>
+							<ExternalLink className="w-4 h-4" />
+							<span className="text-sm font-medium">GitHub 开源</span>
+						</a>
 					</div>
 					<h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">
 						🚀 <span className="bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
 							GoMail API 开发者文档
-						</span>
+						</span> 🚀
 					</h1>
 					<p className="text-lg text-gray-600 max-w-2xl mx-auto">
 						基于Token认证的临时邮箱API接口，支持创建邮箱、获取邮件、下载附件等功能

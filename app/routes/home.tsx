@@ -1,7 +1,6 @@
 import { Loader2Icon, Mail, RefreshCcwIcon, Shield } from "lucide-react";
 import React from "react";
 import {
-	Form,
 	Link,
 	data,
 	redirect,
@@ -195,10 +194,6 @@ export async function action({ request, context }: Route.ActionArgs) {
 	const formData = await request.formData();
 	const action = formData.get("action");
 
-	if (action === "refresh") {
-		return redirect("/");
-	}
-
 	if (action === "delete" || action === "generate") {
 		// 检查是否在 Cloudflare 环境中
 		const env = context?.cloudflare?.env;
@@ -251,9 +246,6 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 		domain: loaderData.email.split('@')[1]
 	});
 
-	const isSubmitting = navigation.state === "submitting";
-	const isRefreshing =
-		navigation.formData?.get("action") === "refresh" && isSubmitting;
 	const isDeleting =
 		fetcher.state === "submitting" && fetcher.formData?.get("action") === "delete";
 
@@ -275,7 +267,12 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 		fetcher.submit(formData, { method: "post" });
 	};
 
-	// 自动刷新逻辑 - 每30秒自动重新验证数据
+	// 手动刷新邮件列表
+	const handleRefreshEmails = () => {
+		revalidator.revalidate();
+	};
+
+	// 自动刷新逻辑 - 每10秒自动重新验证数据
 	React.useEffect(() => {
 		// 确保在客户端环境中运行
 		if (typeof window === 'undefined') return;
@@ -467,28 +464,25 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 												</div>
 											</div>
 										</div>
-										<Form method="post">
-											<Button
-												variant="secondary"
-												size="sm"
-												name="action"
-												value="refresh"
-												disabled={isRefreshing || isAutoRefreshing}
-												className="bg-white/20 hover:bg-white/30 text-white border-white/30 transition-all"
-											>
-												{isRefreshing ? (
-													<>
-														<Loader2Icon className="w-4 h-4 animate-spin mr-2" />
-														刷新中...
-													</>
-												) : (
-													<>
-														<RefreshCcwIcon className="w-4 h-4 mr-2" />
-														🔄 刷新
-													</>
-												)}
-											</Button>
-										</Form>
+										<Button
+											variant="secondary"
+											size="sm"
+											onClick={handleRefreshEmails}
+											disabled={isAutoRefreshing}
+											className="bg-white/20 hover:bg-white/30 text-white border-white/30 transition-all"
+										>
+											{isAutoRefreshing ? (
+												<>
+													<Loader2Icon className="w-4 h-4 animate-spin mr-2" />
+													刷新中...
+												</>
+											) : (
+												<>
+													<RefreshCcwIcon className="w-4 h-4 mr-2" />
+													🔄 刷新
+												</>
+											)}
+										</Button>
 									</div>
 									{isAutoRefreshing && (
 										<div className="text-sm text-blue-100 flex items-center gap-2 mt-2 bg-white/10 rounded-lg px-3 py-2">

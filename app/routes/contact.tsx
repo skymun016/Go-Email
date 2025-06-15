@@ -1,5 +1,6 @@
-import { ClockIcon, MailIcon, MessageCircleIcon } from "lucide-react";
-import { Form, Link, data, redirect } from "react-router";
+import { ClockIcon, MailIcon, MessageCircleIcon, Loader2Icon } from "lucide-react";
+import { Link, data, useFetcher } from "react-router";
+import React from "react";
 import { Button } from "~/components/ui/button";
 import {
 	Card,
@@ -35,8 +36,8 @@ export async function action({ request }: Route.ActionArgs) {
 	// 这里应该发送邮件或保存到数据库
 	console.log("Contact form submitted:", { name, email, subject, message });
 
-	// 重定向到感谢页面或显示成功消息
-	return redirect("/contact?success=true");
+	// 返回成功响应
+	return data({ success: true, message: "消息发送成功！感谢您的反馈，我们会尽快回复您的消息。" });
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -56,6 +57,27 @@ interface ComponentProps {
 
 export default function Contact({ loaderData }: ComponentProps) {
 	const { success } = loaderData || { success: false };
+	const fetcher = useFetcher();
+	const [showSuccess, setShowSuccess] = React.useState(success);
+
+	// 处理表单提交
+	const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+		event.preventDefault();
+		const formData = new FormData(event.currentTarget);
+		fetcher.submit(formData, { method: "post" });
+	};
+
+	// 监听提交结果
+	React.useEffect(() => {
+		if (fetcher.data?.success) {
+			setShowSuccess(true);
+			// 重置表单
+			const form = document.getElementById('contact-form') as HTMLFormElement;
+			if (form) form.reset();
+		}
+	}, [fetcher.data]);
+
+	const isSubmitting = fetcher.state === "submitting";
 
 	return (
 		<div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-blue-50">
@@ -80,7 +102,7 @@ export default function Contact({ loaderData }: ComponentProps) {
 				</div>
 			</section>
 
-			{success && (
+			{(showSuccess || fetcher.data?.success) && (
 				<section className="py-4 sm:py-8">
 					<div className="max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl mx-auto px-3 sm:px-4">
 						<Card className="bg-green-50 border-green-200">
@@ -90,7 +112,7 @@ export default function Contact({ loaderData }: ComponentProps) {
 										消息发送成功！
 									</h3>
 									<p className="text-green-600 text-sm sm:text-base">
-										感谢您的反馈，我们会尽快回复您的消息。
+										{fetcher.data?.message || "感谢您的反馈，我们会尽快回复您的消息。"}
 									</p>
 								</div>
 							</CardContent>
@@ -115,7 +137,7 @@ export default function Contact({ loaderData }: ComponentProps) {
 									</CardDescription>
 								</CardHeader>
 								<CardContent>
-									<Form method="post" className="space-y-4">
+									<form id="contact-form" onSubmit={handleSubmit} className="space-y-4">
 										<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 											<div>
 												<label
@@ -129,7 +151,8 @@ export default function Contact({ loaderData }: ComponentProps) {
 													id="name"
 													name="name"
 													required
-													className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+													disabled={isSubmitting}
+													className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base disabled:opacity-50"
 													placeholder="请输入您的姓名"
 												/>
 											</div>
@@ -145,7 +168,8 @@ export default function Contact({ loaderData }: ComponentProps) {
 													id="email"
 													name="email"
 													required
-													className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+													disabled={isSubmitting}
+													className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base disabled:opacity-50"
 													placeholder="请输入您的邮箱"
 												/>
 											</div>
@@ -161,7 +185,8 @@ export default function Contact({ loaderData }: ComponentProps) {
 												id="subject"
 												name="subject"
 												required
-												className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+												disabled={isSubmitting}
+												className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base disabled:opacity-50"
 											>
 												<option value="">请选择主题</option>
 												<option value="bug">问题反馈</option>
@@ -183,17 +208,26 @@ export default function Contact({ loaderData }: ComponentProps) {
 												name="message"
 												required
 												rows={6}
-												className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+												disabled={isSubmitting}
+												className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base disabled:opacity-50"
 												placeholder="请详细描述您的问题或建议..."
 											/>
 										</div>
 										<Button
 											type="submit"
+											disabled={isSubmitting}
 											className="w-full text-sm sm:text-base"
 										>
-											发送消息
+											{isSubmitting ? (
+												<>
+													<Loader2Icon className="w-4 h-4 animate-spin mr-2" />
+													发送中...
+												</>
+											) : (
+												"发送消息"
+											)}
 										</Button>
-									</Form>
+									</form>
 								</CardContent>
 							</Card>
 						</div>

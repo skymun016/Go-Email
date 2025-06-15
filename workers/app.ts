@@ -6,7 +6,7 @@ import {
 	getOrCreateMailbox,
 	storeEmail,
 } from "../app/lib/db";
-import { getDatabase, getR2Bucket } from "../app/config/app";
+import { getDatabase, getR2Bucket, APP_CONFIG } from "../app/config/app";
 
 declare module "react-router" {
 	export interface AppLoadContext {
@@ -118,18 +118,9 @@ export default {
 
 			// 验证域名是否支持
 			const toDomain = message.to.split('@')[1];
-			const supportedDomains = [
-				"184772.xyz",
-				"187qhuisnj1.dpdns.org",
-				"aisnjd652.dpdns.org",
-				"najb28zd.dpdns.org",
-				"basudlb68114.dpdns.org",
-				"gogogogoegomail.dpdns.org",
-				"tghbjn621.dpdns.org",
-				"xnnaish123em.dpdns.org"
-			];
+			const supportedDomains = APP_CONFIG.cloudflare.email.supportedDomains;
 
-			if (!supportedDomains.includes(toDomain)) {
+			if (!supportedDomains.includes(toDomain as any)) {
 				console.log(`❌ 不支持的域名: ${toDomain}`);
 				return;
 			}
