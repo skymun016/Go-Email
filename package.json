@@ -3,11 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "react-router build",
+    "build": "react-router build && node scripts/fix-build-config.js",
     "cf-typegen": "wrangler types",
     "deploy": "pnpm run build && wrangler deploy",
     "dev": "react-router dev",
-    "postinstall": "pnpm run cf-typegen && pnpm run generate-configs",
+    "postinstall": "node scripts/init-project.js",
     "generate-configs": "node scripts/generate-configs.cjs",
     "validate-config": "node scripts/validate-config.cjs",
     "preview": "pnpm run build && vite preview",
@@ -23,7 +23,6 @@
     "generate-icons": "node scripts/generate-icons.cjs",
     "init-admin": "node scripts/init-admin.cjs",
     "init-project": "node scripts/init-project.js",
-    "postinstall": "node scripts/init-project.js",
     "check-privacy": "node scripts/check-privacy.js",
     "pre-commit": "npm run check-privacy"
   },

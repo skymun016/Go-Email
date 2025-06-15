@@ -7,6 +7,7 @@ import {
 	redirect,
 	useNavigation,
 	useRevalidator,
+	useFetcher,
 } from "react-router";
 
 import { commitSession, getSession } from "~/.server/session";
@@ -29,7 +30,8 @@ import {
 	getOrCreateMailbox,
 } from "~/lib/db";
 import { APP_CONFIG, getDatabase } from "~/config/app";
-import { generateRandomEmail } from "~/lib/email-generator";
+import { generateRandomEmail, generateEmailWithDomain, getSupportedDomains } from "~/lib/email-generator";
+import { DomainSelector } from "~/components/DomainSelector";
 
 
 import type { Route } from "./+types/home";
@@ -106,6 +108,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 			email,
 			mails: [],
 			stats: { total: 0, unread: 0 },
+			supportedDomains: getSupportedDomains(),
 		};
 	}
 
@@ -121,6 +124,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 					email,
 					mails: [],
 					stats: { total: 0, unread: 0 },
+					supportedDomains: getSupportedDomains(),
 				},
 				{
 					headers: {
@@ -152,7 +156,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 			isRead: emailRecord.isRead,
 		}));
 
-		return { email, mails, stats };
+		return { email, mails, stats, supportedDomains: getSupportedDomains() };
 	} catch (error) {
 		console.error("Error loading emails:", error);
 		// 出错时也要保持session中的邮箱地址
@@ -167,6 +171,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 					email,
 					mails: [],
 					stats: { total: 0, unread: 0 },
+					supportedDomains: getSupportedDomains(),
 				},
 				{
 					headers: {
@@ -180,6 +185,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 			email,
 			mails: [],
 			stats: { total: 0, unread: 0 },
+			supportedDomains: getSupportedDomains(),
 		};
 	}
 }
@@ -193,14 +199,34 @@ export async function action({ request, context }: Route.ActionArgs) {
 		return redirect("/");
 	}
 
-	if (action === "delete") {
+	if (action === "delete" || action === "generate") {
 		// 检查是否在 Cloudflare 环境中
 		const env = context?.cloudflare?.env;
 
 		if (env) {
 			try {
 				const session = await getSession(request.headers.get("Cookie"), env);
-				session.set("email", generateRandomEmail());
+
+				// 获取域名选择参数
+				const strategy = formData.get("strategy") as string;
+				const domain = formData.get("domain") as string;
+
+				let newEmail: string;
+				if (action === "generate" && strategy) {
+					// 来自域名选择器的生成请求，使用指定的策略
+					if (strategy === "manual" && domain) {
+						// 手动选择：使用指定域名生成邮箱
+						newEmail = generateEmailWithDomain(domain);
+					} else {
+						// 智能选择或随机选择：使用策略生成邮箱
+						newEmail = generateRandomEmail(strategy);
+					}
+				} else {
+					// 来自"生成新邮箱"按钮的请求，使用默认策略
+					newEmail = generateRandomEmail();
+				}
+
+				session.set("email", newEmail);
 				await commitSession(session, env);
 			} catch (error) {
 				console.error("Error updating session:", error);
@@ -217,11 +243,37 @@ export async function action({ request, context }: Route.ActionArgs) {
 export default function Home({ loaderData }: Route.ComponentProps) {
 	const navigation = useNavigation();
 	const revalidator = useRevalidator();
+	const fetcher = useFetcher();
+
+	// 跟踪当前域名选择状态
+	const [currentDomainState, setCurrentDomainState] = React.useState({
+		strategy: APP_CONFIG.domain.strategy as string,
+		domain: loaderData.email.split('@')[1]
+	});
+
 	const isSubmitting = navigation.state === "submitting";
 	const isRefreshing =
 		navigation.formData?.get("action") === "refresh" && isSubmitting;
 	const isDeleting =
-		navigation.formData?.get("action") === "delete" && isSubmitting;
+		fetcher.state === "submitting" && fetcher.formData?.get("action") === "delete";
+
+	// 处理域名选择状态变化
+	const handleDomainStateChange = (strategy: string, domain: string) => {
+		setCurrentDomainState({ strategy, domain });
+	};
+
+	// 生成新邮箱的处理函数 - 使用当前的域名选择状态
+	const handleGenerateNewEmail = () => {
+		const formData = new FormData();
+		formData.append("action", "generate");
+		formData.append("strategy", currentDomainState.strategy);
+
+		if (currentDomainState.strategy === "manual") {
+			formData.append("domain", currentDomainState.domain);
+		}
+
+		fetcher.submit(formData, { method: "post" });
+	};
 
 	// 自动刷新逻辑 - 每30秒自动重新验证数据
 	React.useEffect(() => {
@@ -293,7 +345,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
 
 
-					<div className="grid lg:grid-cols-2 gap-8">
+					<div className="grid lg:grid-cols-3 gap-8">
 						{/* 左侧：邮箱地址 */}
 						<div className="space-y-6">
 							{/* 邮箱地址卡片 */}
@@ -342,26 +394,22 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 											variant="default"
 											className="w-full h-10 bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all"
 										/>
-										<Form method="post" className="w-full">
-											<Button
-												variant="outline"
-												size="default"
-												type="submit"
-												name="action"
-												value="delete"
-												disabled={isDeleting}
-												className="w-full h-10 border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-all"
-											>
-												{isDeleting ? (
-													<>
-														<Loader2Icon className="w-4 h-4 animate-spin mr-2" />
-														生成中...
-													</>
-												) : (
-													<>🔄 生成新邮箱</>
-												)}
-											</Button>
-										</Form>
+										<Button
+											variant="outline"
+											size="default"
+											onClick={handleGenerateNewEmail}
+											disabled={isDeleting}
+											className="w-full h-10 border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-all"
+										>
+											{isDeleting ? (
+												<>
+													<Loader2Icon className="w-4 h-4 animate-spin mr-2" />
+													生成中...
+												</>
+											) : (
+												<>🔄 生成新邮箱</>
+											)}
+										</Button>
 									</div>
 
 									{/* Tips */}
@@ -384,6 +432,16 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 									</div>
 								</CardContent>
 							</Card>
+						</div>
+
+						{/* 中间：域名选择器 */}
+						<div className="space-y-6">
+							<DomainSelector
+								domains={loaderData.supportedDomains || getSupportedDomains()}
+								currentDomain={loaderData.email.split('@')[1]}
+								strategy={APP_CONFIG.domain.strategy}
+								onStateChange={handleDomainStateChange}
+							/>
 						</div>
 
 						{/* 右侧：收件箱 */}

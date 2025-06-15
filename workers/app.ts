@@ -116,6 +116,26 @@ export default {
 				`📧 Received email: ${message.from} -> ${message.to}, size: ${message.rawSize}`,
 			);
 
+			// 验证域名是否支持
+			const toDomain = message.to.split('@')[1];
+			const supportedDomains = [
+				"184772.xyz",
+				"187qhuisnj1.dpdns.org",
+				"aisnjd652.dpdns.org",
+				"najb28zd.dpdns.org",
+				"basudlb68114.dpdns.org",
+				"gogogogoegomail.dpdns.org",
+				"tghbjn621.dpdns.org",
+				"xnnaish123em.dpdns.org"
+			];
+
+			if (!supportedDomains.includes(toDomain)) {
+				console.log(`❌ 不支持的域名: ${toDomain}`);
+				return;
+			}
+
+			console.log(`✅ 域名验证通过: ${toDomain}`);
+
 			// 创建数据库实例
 			const db = createDB(getDatabase(env));
 

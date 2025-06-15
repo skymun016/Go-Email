@@ -19,6 +19,7 @@ function generateWranglerConfig() {
     "$schema": "node_modules/wrangler/config-schema.json",
     "name": config.project.name,
     "compatibility_date": config.deployment.compatibilityDate,
+    "compatibility_flags": ["nodejs_compat"],
     "main": config.paths.workers,
     "observability": {
       "enabled": config.deployment.observability
@@ -93,6 +94,8 @@ export const APP_CONFIG = {
   domain: {
     primary: "${config.domain.primary}",
     website: "${config.domain.website}",
+    additional: ${JSON.stringify(config.domain.additional || [])},
+    strategy: "${config.domain.strategy || 'smart'}",
   },
 
   cloudflare: {
@@ -108,6 +111,7 @@ export const APP_CONFIG = {
     },
     email: {
       domain: "${config.cloudflare.email.domain}",
+      supportedDomains: ${JSON.stringify(config.cloudflare.email.supportedDomains || [config.cloudflare.email.domain])},
     },
   },
 
