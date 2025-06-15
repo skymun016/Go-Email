@@ -2,10 +2,13 @@
 
 ## 📋 配置文件设置
 
-### 1. 创建配置文件
+### 1. 初始化项目
 
 ```bash
-# 复制配置模板
+# 自动创建配置文件 (npm install 时会自动运行)
+npm run init-project
+
+# 或者手动复制配置模板
 cp config.example.cjs config.cjs
 ```
 

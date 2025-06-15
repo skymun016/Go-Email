@@ -29,6 +29,9 @@ config.cjs
 app/config/app.ts
 DEPLOYMENT.md
 
+# 但保留模板文件
+!app/config/app.example.ts
+
 # 日志文件
 *.log
 npm-debug.log*

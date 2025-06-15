@@ -22,6 +22,8 @@
     "test:email:custom": "node scripts/test-email.js",
     "generate-icons": "node scripts/generate-icons.cjs",
     "init-admin": "node scripts/init-admin.cjs",
+    "init-project": "node scripts/init-project.js",
+    "postinstall": "node scripts/init-project.js",
     "check-privacy": "node scripts/check-privacy.js",
     "pre-commit": "npm run check-privacy"
   },
