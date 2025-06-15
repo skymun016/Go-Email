@@ -21,7 +21,9 @@
     "test:email": "node scripts/test-email.js",
     "test:email:custom": "node scripts/test-email.js",
     "generate-icons": "node scripts/generate-icons.cjs",
-    "init-admin": "node scripts/init-admin.cjs"
+    "init-admin": "node scripts/init-admin.cjs",
+    "check-privacy": "node scripts/check-privacy.js",
+    "pre-commit": "npm run check-privacy"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.10",

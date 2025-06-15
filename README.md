@@ -1,36 +1,73 @@
 # GoMail 🚀
 
-**前身为 Smail，现已全面升级为 GoMail！**
+**现代化临时邮箱服务 - 基于 Cloudflare 全栈解决方案**
 
-一个基于 Cloudflare Workers 的现代化临时邮箱服务，采用 React Router v7 构建，具备完整的统一配置管理系统和企业级功能。
+一个完全免费、开源的临时邮箱服务，基于 Cloudflare Workers + D1 数据库 + R2 存储构建，采用 React Router v7 开发，提供企业级的性能和稳定性。
 
-## 🌟 项目演进
+## 🌐 在线体验
 
-**GoMail** 是在 Smail 基础上的重大升级版本：
+**官方网站**: [http://184772.xyz/](http://184772.xyz/)
 
-### 📈 从 Smail 到 GoMail 的升级亮点：
-- 🔧 **统一配置管理**：引入 `config.cjs` 一键配置系统
-- 📊 **广告系统集成**：完整的 Google AdSense 动态配置
-- 📈 **数据统计**：百度统计无缝集成
-- 🛠️ **自动化工具**：配置验证和自动生成脚本
-- 🎨 **UI/UX 优化**：全新的响应式设计和用户体验
-- 📱 **移动端优化**：完美的移动设备适配
-- 🔐 **安全增强**：ads.txt 自动配置和安全策略
+立即访问体验完整功能，无需注册即可使用！
 
-## ✨ 核心功能特性
+## 💬 交流群组
 
-### 🚀 **邮箱服务**
-- 💨 **即时生成**：无需注册，一键生成专属临时邮箱
-- 📧 **实时接收**：自动接收并实时显示邮件内容
-- 📎 **附件支持**：完整的邮件附件查看和下载功能
-- ⏰ **智能过期**：24小时自动过期，保护用户隐私
-- 🔄 **自动刷新**：10秒智能刷新，不错过任何邮件
+**QQ交流群**: `1017212982`
 
-### 🎯 **配置管理**
-- 🔧 **统一配置**：只需修改 `config.cjs` 一个文件
-- ⚙️ **自动生成**：配置文件自动生成和同步
-- ✅ **配置验证**：内置验证工具确保配置正确性
-- 📋 **类型安全**：完整的 TypeScript 类型支持
+欢迎加入讨论技术问题、功能建议和使用心得！
+
+## 🎯 项目简介
+
+GoMail 是一个专为隐私保护和便捷使用而设计的临时邮箱服务：
+
+### 🚀 **核心特性**
+- ⚡ **即时生成**：无需注册，一键生成临时邮箱
+- 📧 **实时接收**：自动接收邮件，实时显示内容
+- 📎 **附件支持**：完整支持邮件附件查看和下载
+- 🔒 **隐私保护**：24小时自动过期，保护用户隐私
+- 🌐 **全球可用**：基于Cloudflare全球网络，访问速度快
+- 📱 **响应式设计**：完美支持手机、平板、电脑访问
+
+### 🛠️ **技术架构**
+- **前端**: React Router v7 + TypeScript + Tailwind CSS
+- **后端**: Cloudflare Workers (Serverless)
+- **数据库**: Cloudflare D1 (SQLite)
+- **存储**: Cloudflare R2 (附件存储)
+- **邮件**: Cloudflare Email Routing
+- **部署**: 一键部署到 Cloudflare
+
+## 🎯 使用场景
+
+### 👥 **适用人群**
+- 🛡️ **隐私保护者**：不想暴露真实邮箱地址
+- 🧪 **开发测试**：需要大量邮箱进行功能测试
+- 📝 **临时注册**：注册一次性账号或服务
+- 🚫 **避免垃圾邮件**：防止营销邮件骚扰
+- 🔍 **匿名验证**：匿名接收验证码和激活邮件
+
+### 💼 **应用场景**
+- 📱 APP注册验证
+- 🌐 网站账号激活
+- 🎮 游戏账号注册
+- 💳 优惠券和促销信息接收
+- 🧪 API接口测试
+- 📊 邮件营销测试
+
+## ✨ 功能特性
+
+### 🚀 **核心功能**
+- ⚡ **秒级生成**：点击即可生成可用邮箱
+- 📧 **实时接收**：邮件到达立即显示，无需刷新
+- 📎 **附件下载**：支持各种格式附件查看和下载
+- 🔄 **自动刷新**：智能轮询，及时获取新邮件
+- ⏰ **自动过期**：24小时后自动清理，保护隐私
+- 📱 **移动优化**：完美适配手机和平板设备
+
+### 🛠️ **管理功能**
+- 🔐 **管理后台**：完整的邮件和用户管理系统
+- 🔑 **API接口**：RESTful API支持第三方集成
+- 📊 **使用统计**：详细的访问和使用数据分析
+- 🛡️ **安全防护**：防刷机制和访问频率限制
 
 ### 💰 **商业化功能**
 - 📊 **Google AdSense**：完整的广告系统集成
@@ -65,53 +102,60 @@
 - **代码质量**：Biome
 - **部署**：Wrangler CLI
 
-## 🚀 快速开始
+## 🚀 快速部署
 
-### 📋 环境要求
+> 📖 **详细部署指南**: [SETUP.md](SETUP.md) - 完整的配置和部署教程
 
-- Node.js 18+
-- pnpm 8+
-- Cloudflare 账户
+### 📋 **部署前准备**
 
-### 🔧 一键配置部署
+#### 必需条件：
+- ✅ **Cloudflare账号** (免费即可)
+- ✅ **域名** (可在Cloudflare注册或转入)
+- ✅ **Node.js 18+** 和 **npm/yarn/pnpm**
+- ✅ **Git** 版本控制工具
 
-1. **克隆项目**
+#### 推荐配置：
+- 💳 **Cloudflare付费计划** (更高的请求限制)
+- 🌐 **多个备用域名** (提高可用性)
+- 📧 **自定义邮箱域名** (更专业的服务)
+
+### ⚡ **一键部署 (推荐)**
+
+最简单的部署方式，适合快速体验：
+
 ```bash
+# 1. 克隆项目
 git clone https://github.com/xn030523/Go-Email.git
 cd Go-Email
+
+# 2. 安装依赖
+npm install
+
+# 3. 登录Cloudflare
+npx wrangler login
+
+# 4. 配置项目
+# 复制配置模板并编辑
+cp config.example.cjs config.cjs
+vim config.cjs  # 填入你的域名和配置
+
+# 5. 生成配置文件
+npm run generate-configs
+
+# 6. 创建Cloudflare资源
+npm run setup
+
+# 7. 部署到Cloudflare
+npm run deploy
 ```
 
-2. **安装依赖**
-```bash
-pnpm install
-```
+> 💡 **需要详细指导？** 查看 [SETUP.md](SETUP.md) 获取完整的配置说明和故障排除指南
 
-3. **配置项目**
-```bash
-# 编辑主配置文件
-vim config.cjs
+### 📚 **部署文档**
 
-# 验证配置
-pnpm run validate-config
-
-# 生成所有配置文件
-pnpm run generate-configs
-```
-
-4. **本地开发**
-```bash
-pnpm dev
-```
-
-5. **部署到 Cloudflare**
-```bash
-# 登录 Cloudflare
-wrangler auth login
-
-# 创建资源（按照 DEPLOYMENT.md 指南）
-# 然后部署
-pnpm run deploy
-```
+- 📖 **[完整部署指南](SETUP.md)** - 详细的配置和部署教程
+- 🔧 **[配置模板](config.example.cjs)** - 配置文件模板
+- 🛠️ **[故障排除](SETUP.md#获取帮助)** - 常见问题解决方案
 
 ## 📁 项目结构
 
@@ -138,7 +182,9 @@ GoMail/
 │   └── adsense-usage-examples.md
 ├── 📁 public/                 # 静态资源
 │   └── ads.txt               # AdSense 验证文件
-├── config.cjs                 # 🎯 主配置文件
+├── config.example.cjs         # 🎯 配置文件模板
+├── config.cjs                # 🔒 主配置文件（不提交到Git）
+├── SETUP.md                  # 📖 详细部署指南
 ├── wrangler.jsonc            # Cloudflare 配置（自动生成）
 ├── .dev.vars                 # 开发环境变量（自动生成）
 └── DEPLOYMENT.md             # 部署指南（自动生成）
@@ -220,7 +266,8 @@ pnpm run generate-configs
 
 ## 📚 文档与指南
 
-- 📖 **[部署指南](DEPLOYMENT.md)** - 完整的部署流程
+- 📖 **[SETUP.md](SETUP.md)** - 🌟 **完整的配置和部署指南**
+- 🔧 **[config.example.cjs](config.example.cjs)** - 配置文件模板
 - 📊 **[AdSense 配置](docs/adsense-setup.md)** - 广告配置详解
 - 💡 **[使用示例](docs/adsense-usage-examples.md)** - 代码使用示例
 
@@ -249,19 +296,72 @@ pnpm run generate-configs
 - **Tailwind CSS** - 优秀的 CSS 框架
 - **Drizzle ORM** - 类型安全的 ORM
 
-## 📞 支持与反馈
+## 🎯 **最方便的部署方式**
 
-- 🐛 **Bug 报告**: [GitHub Issues](https://github.com/xn030523/Go-Email/issues)
+### 🚀 **推荐：使用Cloudflare一键部署**
+
+1. **Fork项目到你的GitHub**
+2. **在Cloudflare Pages中连接GitHub仓库**
+3. **配置环境变量和资源绑定**
+4. **自动部署完成**
+
+这种方式支持：
+- ✅ **自动部署**：代码推送自动更新
+- ✅ **零配置**：Cloudflare自动处理构建
+- ✅ **免费使用**：Cloudflare免费计划足够使用
+- ✅ **全球CDN**：自动享受全球加速
+
+### 💡 **部署小贴士**
+
+- 🔧 **首次部署**：建议使用详细步骤，确保理解每个环节
+- ⚡ **快速体验**：使用一键部署脚本，5分钟即可上线
+- 🌐 **生产环境**：推荐使用付费计划，获得更好的性能
+- 📊 **监控运维**：配置Cloudflare Analytics监控服务状态
+
+## 💬 **交流与支持**
+
+### 🎯 **官方资源**
+- 🌐 **在线演示**: [http://184772.xyz/](http://184772.xyz/)
+- 📱 **QQ交流群**: `1017212982`
+- 📚 **GitHub仓库**: [https://github.com/xn030523/Go-Email](https://github.com/xn030523/Go-Email)
+
+### 🤝 **获取帮助**
+- 📖 **部署指南**: [SETUP.md](SETUP.md) - 完整的配置和部署教程
+- 🐛 **Bug报告**: [GitHub Issues](https://github.com/xn030523/Go-Email/issues)
 - 💡 **功能建议**: [GitHub Discussions](https://github.com/xn030523/Go-Email/discussions)
-- 📧 **邮件联系**: 通过项目临时邮箱服务联系
+- 💬 **技术交流**: 加入QQ群 `1017212982` 讨论
+- 📧 **邮件联系**: 使用我们的临时邮箱服务发送反馈
+
+### 🎉 **社区贡献**
+欢迎提交PR、报告Bug、提出建议！我们重视每一个反馈。
+
+## 📄 **开源协议**
+
+本项目采用 **MIT License** 开源协议，你可以：
+- ✅ 商业使用
+- ✅ 修改代码
+- ✅ 分发代码
+- ✅ 私人使用
+
+## 🙏 **致谢**
+
+感谢以下技术和平台：
+- **Cloudflare** - 强大的边缘计算平台
+- **React Router v7** - 现代化路由框架
+- **Tailwind CSS** - 优秀的CSS框架
+- **Drizzle ORM** - 类型安全的数据库ORM
 
 ---
 
 <div align="center">
 
+### 🌟 **GoMail - 让临时邮箱更简单** 🌟
+
 **⭐ 如果这个项目对您有帮助，请给我们一个 Star！⭐**
 
-**从 Smail 到 GoMail，我们一直在进步！🚀**
+**🚀 立即体验：[http://184772.xyz/](http://184772.xyz/) 🚀**
+
+**💬 加入交流群：1017212982 💬**
 
 </div>
 

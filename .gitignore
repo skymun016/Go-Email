@@ -1,4 +1,8 @@
+# 系统文件
 .DS_Store
+Thumbs.db
+
+# 依赖
 /node_modules/
 *.tsbuildinfo
 
@@ -6,10 +10,35 @@
 /.react-router/
 /build/
 /auto-augment/
+
 # Cloudflare
 .mf
 .wrangler
 .dev.vars
-
 wrangler.jsonc
+
+# 环境变量和配置文件 (包含隐私信息)
 .env
+.env.local
+.env.production
+config.cjs
+
+# 自动生成的配置文件 (包含隐私信息)
+app/config/app.ts
+DEPLOYMENT.md
+
+# 日志文件
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 临时文件
+*.tmp
+*.temp
