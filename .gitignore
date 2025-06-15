@@ -22,6 +22,7 @@ wrangler.jsonc
 .env.local
 .env.production
 config.cjs
+config.cjs
 
 
 # 自动生成的配置文件 (包含隐私信息)
