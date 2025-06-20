@@ -31,6 +31,7 @@ import {
 import { APP_CONFIG, getDatabase } from "~/config/app";
 import { generateRandomEmail, generateEmailWithDomain, getSupportedDomains } from "~/lib/email-generator";
 import { DomainSelector } from "~/components/DomainSelector";
+import { FloatingAds } from "~/components/FloatingAds";
 
 
 import type { Route } from "./+types/home";
@@ -311,31 +312,43 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 		<div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-blue-50">
 			<main className="container mx-auto px-4 py-8">
 				<div className="max-w-6xl mx-auto">
-					{/* Hero Section */}
-					<div className="text-center mb-16">
-						<div className="inline-flex items-center px-4 py-2 rounded-full bg-gradient-to-r from-blue-100 to-cyan-100 border border-blue-200 mb-6">
-							<span className="text-blue-700 text-sm font-medium">🚀 新一代隐私保护工具</span>
-						</div>
-						<h1 className="text-5xl md:text-6xl font-bold mb-6">
-							<span className="text-gray-800">守护隐私的</span>
-							<br />
-							<span className="bg-gradient-to-r from-blue-600 via-cyan-600 to-blue-700 bg-clip-text text-transparent">
-								GoMail 临时邮箱
-							</span>
-						</h1>
-						<p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed mb-8">
-							告别垃圾邮件困扰，拥抱纯净数字生活
-							<br />
-							<span className="text-blue-600 font-semibold">零注册 · 即时用 · 24小时守护 · 永久免费</span>
-						</p>
-						<div className="flex flex-wrap justify-center gap-4 text-sm text-gray-500">
-							<div className="flex items-center gap-1">
-								<span className="w-2 h-2 bg-green-500 rounded-full"></span>
-								<span>已保护 100,000+ 用户隐私</span>
-							</div>
-							<div className="flex items-center gap-1">
-								<span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-								<span>99.9% 服务可用性</span>
+					{/* Hero Section - 紧凑长文形式 */}
+					<div className="mb-12">
+						<div className="bg-gradient-to-r from-blue-50 via-cyan-50 to-blue-50 rounded-xl p-6 border border-blue-200 shadow-lg">
+							<div className="flex flex-col md:flex-row items-center gap-6">
+								{/* 左侧图标和标题 */}
+								<div className="flex-shrink-0">
+									<div className="bg-gradient-to-r from-blue-600 to-cyan-600 w-16 h-16 rounded-full flex items-center justify-center shadow-lg">
+										<span className="text-white text-3xl">📧</span>
+									</div>
+								</div>
+
+								{/* 中间内容 */}
+								<div className="flex-1 text-center md:text-left">
+									<div className="inline-flex items-center px-3 py-1 rounded-full bg-gradient-to-r from-blue-100 to-cyan-100 border border-blue-200 mb-3">
+										<span className="text-blue-700 text-sm font-medium">🚀 新一代隐私保护工具</span>
+									</div>
+									<h1 className="text-2xl md:text-3xl font-bold mb-2">
+										<span className="text-gray-800">守护隐私的 </span>
+										<span className="bg-gradient-to-r from-blue-600 via-cyan-600 to-blue-700 bg-clip-text text-transparent">GoMail 临时邮箱</span>
+									</h1>
+									<p className="text-gray-600 leading-relaxed mb-3">
+										告别垃圾邮件困扰，拥抱纯净数字生活 -
+										<span className="text-blue-600 font-semibold">零注册 · 即时用 · 24小时守护 · 永久免费</span>
+									</p>
+								</div>
+
+								{/* 右侧统计信息 */}
+								<div className="flex-shrink-0 flex flex-col gap-2 text-sm">
+									<div className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 shadow-sm">
+										<span className="w-2 h-2 bg-green-500 rounded-full"></span>
+										<span className="text-gray-600">已保护 100,000+ 用户隐私</span>
+									</div>
+									<div className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 shadow-sm">
+										<span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+										<span className="text-gray-600">99.9% 服务可用性</span>
+									</div>
+								</div>
 							</div>
 						</div>
 					</div>
@@ -533,7 +546,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
 
 
-					{/* Features Section */}
+					{/* 为什么选择 GoMail Section */}
 					<div className="mt-20">
 						<div className="text-center mb-12">
 							<h3 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">
@@ -543,38 +556,182 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 								三大核心优势，让您的隐私保护之旅更加安心
 							</p>
 						</div>
-						<div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-							<Card className="text-center hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-white to-blue-50">
-								<CardContent className="pt-8 pb-6">
-									<div className="bg-gradient-to-r from-blue-100 to-blue-200 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
-										<span className="text-3xl">🛡️</span>
-									</div>
+
+						{/* 长文形式的特性介绍 */}
+						<div className="max-w-4xl mx-auto space-y-8">
+							{/* 极致隐私保护 */}
+							<div className="flex items-start gap-6 p-6 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl border border-blue-200 hover:shadow-lg transition-all">
+								<div className="bg-gradient-to-r from-blue-500 to-cyan-500 w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
+									<span className="text-white text-2xl">🛡️</span>
+								</div>
+								<div>
 									<h4 className="text-xl font-bold mb-3 text-gray-800">极致隐私保护</h4>
 									<p className="text-gray-600 leading-relaxed">
-										军用级加密技术，零日志记录策略，让您的真实邮箱地址永远安全无忧
+										采用军用级加密技术，实施零日志记录策略，确保您的真实邮箱地址永远安全无忧。我们深知隐私的重要性，因此从技术架构到运营策略，每一个环节都以保护用户隐私为最高准则。
 									</p>
-								</CardContent>
-							</Card>
-							<Card className="text-center hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-white to-green-50">
-								<CardContent className="pt-8 pb-6">
-									<div className="bg-gradient-to-r from-green-100 to-green-200 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
-										<span className="text-3xl">⚡</span>
-									</div>
+								</div>
+							</div>
+
+							{/* 闪电般创建 */}
+							<div className="flex items-start gap-6 p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200 hover:shadow-lg transition-all">
+								<div className="bg-gradient-to-r from-green-500 to-emerald-500 w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
+									<span className="text-white text-2xl">⚡</span>
+								</div>
+								<div>
 									<h4 className="text-xl font-bold mb-3 text-gray-800">闪电般创建</h4>
 									<p className="text-gray-600 leading-relaxed">
-										告别繁琐注册流程，一键即得专属临时邮箱，让效率成为您的超能力
+										告别繁琐的注册流程，无需填写个人信息，一键即可获得专属临时邮箱。我们的智能系统能在毫秒级时间内为您生成可用的邮箱地址，让效率成为您的超能力，让等待成为过去式。
 									</p>
-								</CardContent>
-							</Card>
-							<Card className="text-center hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-white to-purple-50">
-								<CardContent className="pt-8 pb-6">
-									<div className="bg-gradient-to-r from-purple-100 to-purple-200 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
-										<span className="text-3xl">💎</span>
-									</div>
+								</div>
+							</div>
+
+							{/* 永久免费承诺 */}
+							<div className="flex items-start gap-6 p-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200 hover:shadow-lg transition-all">
+								<div className="bg-gradient-to-r from-purple-500 to-pink-500 w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
+									<span className="text-white text-2xl">💎</span>
+								</div>
+								<div>
 									<h4 className="text-xl font-bold mb-3 text-gray-800">永久免费承诺</h4>
 									<p className="text-gray-600 leading-relaxed">
-										无套路无广告，纯净使用体验，我们用实际行动诠释什么是真正的免费
+										无套路无广告，提供纯净的使用体验。我们坚信优质的服务不应该以牺牲用户体验为代价，因此承诺永久免费提供核心功能，用实际行动诠释什么是真正的免费服务。
 									</p>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					{/* 生态系统 Section */}
+					<div className="mt-20">
+						<div className="text-center mb-12">
+							<h3 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">
+								🚀 完整生态系统
+							</h3>
+							<p className="text-xl text-gray-600 max-w-3xl mx-auto">
+								从临时邮箱到 IDEA 开发工具，打造无缝的隐私保护开发体验
+							</p>
+						</div>
+						{/* 长条形式的生态系统链接 */}
+						<div className="max-w-4xl mx-auto space-y-6">
+							{/* IDEA Token 池 - 长条形式 */}
+							<div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-xl p-6 border border-orange-200 shadow-lg hover:shadow-xl transition-all">
+								<div className="flex flex-col md:flex-row items-center gap-6">
+									{/* 左侧图标 */}
+									<div className="flex-shrink-0">
+										<div className="bg-gradient-to-r from-orange-500 to-red-500 w-16 h-16 rounded-full flex items-center justify-center shadow-lg">
+											<span className="text-white text-3xl">🎯</span>
+										</div>
+									</div>
+
+									{/* 中间内容 */}
+									<div className="flex-1 text-center md:text-left">
+										<h4 className="text-xl font-bold mb-2 text-gray-800">IDEA Token 池</h4>
+										<p className="text-gray-600 leading-relaxed">
+											Augment Token 获取地址，为您的 IDEA 开发提供强大的 AI 支持
+										</p>
+									</div>
+
+									{/* 右侧按钮 */}
+									<div className="flex-shrink-0">
+										<a
+											href="https://augment.184772.xyz"
+											target="_blank"
+											rel="noopener noreferrer"
+											className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg hover:from-orange-600 hover:to-red-600 transition-all shadow-lg hover:shadow-xl"
+										>
+											<span>🔗 访问 Token 池</span>
+											<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+											</svg>
+										</a>
+									</div>
+								</div>
+							</div>
+
+							{/* IDEA 无感换号插件 - 长条形式 */}
+							<div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-6 border border-purple-200 shadow-lg hover:shadow-xl transition-all">
+								<div className="flex flex-col md:flex-row items-center gap-6">
+									{/* 左侧图标 */}
+									<div className="flex-shrink-0">
+										<div className="bg-gradient-to-r from-purple-500 to-indigo-500 w-16 h-16 rounded-full flex items-center justify-center shadow-lg">
+											<span className="text-white text-3xl">🔧</span>
+										</div>
+									</div>
+
+									{/* 中间内容 */}
+									<div className="flex-1 text-center md:text-left">
+										<h4 className="text-xl font-bold mb-2 text-gray-800">IDEA 无感换号</h4>
+										<p className="text-gray-600 leading-relaxed">
+											开源 IDEA 插件，实现 Augment 账号无感切换，提升开发效率
+										</p>
+									</div>
+
+									{/* 右侧按钮 */}
+									<div className="flex-shrink-0">
+										<a
+											href="https://github.com/xn030523/augment-token-idea-free.git"
+											target="_blank"
+											rel="noopener noreferrer"
+											className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-lg hover:from-purple-600 hover:to-indigo-600 transition-all shadow-lg hover:shadow-xl"
+										>
+											<span>📦 GitHub 仓库</span>
+											<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+											</svg>
+										</a>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						{/* 生态系统流程图 */}
+						<div className="mt-12 max-w-4xl mx-auto">
+							<Card className="border-0 shadow-xl bg-gradient-to-br from-white to-blue-50">
+								<CardContent className="pt-8 pb-6">
+									<h4 className="text-2xl font-bold text-center mb-8 text-gray-800">
+										🔄 完整工作流程
+									</h4>
+									<div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-8">
+										{/* 步骤 1 */}
+										<div className="flex flex-col items-center text-center">
+											<div className="bg-gradient-to-r from-blue-500 to-cyan-500 w-16 h-16 rounded-full flex items-center justify-center mb-4 shadow-lg">
+												<span className="text-white text-2xl font-bold">1</span>
+											</div>
+											<h5 className="font-bold text-gray-800 mb-2">获取临时邮箱</h5>
+											<p className="text-sm text-gray-600">使用 GoMail 生成临时邮箱地址</p>
+										</div>
+
+										{/* 箭头 */}
+										<div className="hidden md:block text-gray-400">
+											<svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+											</svg>
+										</div>
+
+										{/* 步骤 2 */}
+										<div className="flex flex-col items-center text-center">
+											<div className="bg-gradient-to-r from-orange-500 to-red-500 w-16 h-16 rounded-full flex items-center justify-center mb-4 shadow-lg">
+												<span className="text-white text-2xl font-bold">2</span>
+											</div>
+											<h5 className="font-bold text-gray-800 mb-2">获取 Token</h5>
+											<p className="text-sm text-gray-600">访问 Token 池获取 Augment 令牌</p>
+										</div>
+
+										{/* 箭头 */}
+										<div className="hidden md:block text-gray-400">
+											<svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+											</svg>
+										</div>
+
+										{/* 步骤 3 */}
+										<div className="flex flex-col items-center text-center">
+											<div className="bg-gradient-to-r from-purple-500 to-indigo-500 w-16 h-16 rounded-full flex items-center justify-center mb-4 shadow-lg">
+												<span className="text-white text-2xl font-bold">3</span>
+											</div>
+											<h5 className="font-bold text-gray-800 mb-2">IDEA 开发</h5>
+											<p className="text-sm text-gray-600">使用插件在 IDEA 中无感切换账号</p>
+										</div>
+									</div>
 								</CardContent>
 							</Card>
 						</div>
@@ -594,6 +751,9 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 					</div>
 				</div>
 			</main>
+
+			{/* 悬浮广告 */}
+			<FloatingAds />
 		</div>
 	);
 }
