@@ -1,7 +1,7 @@
 import { createCookie, createMemorySessionStorage } from "react-router";
 import { createWorkersKVSessionStorage } from "@react-router/cloudflare";
 import bcrypt from "bcryptjs";
-import { getKVNamespace } from "~/config/app";
+import { getKVNamespace, APP_CONFIG } from "~/config/app";
 import { createDB, validateApiToken } from "~/lib/db";
 
 // ==================== Session 管理 ====================
@@ -14,9 +14,9 @@ type AdminSessionData = {
 // 创建管理员session cookie
 const adminSessionCookie = createCookie("__admin_session", {
 	secrets: ["admin-session-secret"], // 在生产环境中应该从环境变量读取
-	sameSite: true,
+	sameSite: "lax", // 改为 lax 以支持跨域重定向
 	httpOnly: true,
-	secure: true,
+	secure: false, // 暂时设为 false 用于调试
 	maxAge: 60 * 60 * 24 * 7, // 7天
 });
 

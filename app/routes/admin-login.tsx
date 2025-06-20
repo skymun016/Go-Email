@@ -27,7 +27,8 @@ export async function loader({ request, context }: any) {
 		}
 
 		return null;
-	} catch {
+	} catch (error) {
+		console.error("Admin login loader error:", error);
 		return null;
 	}
 }
@@ -74,6 +75,8 @@ export async function action({ request, context }: any) {
 		const session = await getAdminSession(request.headers.get("Cookie"), env);
 		session.set("adminId", admin.id);
 		session.set("username", admin.username);
+
+		console.log("🔐 Admin login successful, setting session for:", admin.username);
 
 		// 提交session并重定向到仪表板
 		return redirect("/admin/dashboard", {
