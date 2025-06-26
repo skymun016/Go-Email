@@ -30,6 +30,10 @@ export function meta() {
 		{ name: "robots", content: "index, follow" },
 		{ name: "googlebot", content: "index, follow" },
 
+		// 搜索引擎验证
+		{ name: "baidu-site-verification", content: "codeva-NpqEW1Jyuh" },
+		{ name: "msvalidate.01", content: "956A220018345D23117559D47BD8FC90" },
+
 		// Open Graph 标签
 		{ property: "og:type", content: "website" },
 		{

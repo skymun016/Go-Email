@@ -52,10 +52,19 @@ export function loader({ request }: LoaderFunctionArgs) {
 			priority: "0.5",
 			lastmod: currentDate,
 		},
+		{
+			url: "/api-docs",
+			changefreq: "monthly",
+			priority: "0.6",
+			lastmod: currentDate,
+		},
 	];
 
 	const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
+        http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
 ${pages
 	.map(
 		(page) => `  <url>
@@ -71,8 +80,9 @@ ${pages
 	return new Response(sitemap, {
 		status: 200,
 		headers: {
-			"Content-Type": "application/xml",
+			"Content-Type": "application/xml; charset=utf-8",
 			"Cache-Control": "public, max-age=3600", // 缓存1小时
+			"X-Robots-Tag": "noindex", // 防止站点地图本身被索引
 		},
 	});
 }
