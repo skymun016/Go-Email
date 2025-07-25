@@ -1,35 +1,34 @@
 /**
- * 🚀 GoMail 配置模板文件
+ * 🚀 GoMail 配置文件 - 为 augmails.com 定制
  *
- * 📋 使用步骤：
- * 1. 复制此文件为 config.cjs：cp config.example.cjs config.cjs
- * 2. 根据下面的说明修改配置
- * 3. 运行 npm run generate-configs 生成配置文件
- * 4. 部署到 Cloudflare
+ * 📋 配置说明：
+ * - Web域名：apps.augmails.com
+ * - 主邮箱域名：augmails.com
+ * - 备用邮箱域名：55mails.com, augmentmails.com, cusmails.com
  */
 
 module.exports = {
   // 🏷️ 项目基本信息
   project: {
     name: "gomail-app",                              // 项目名称（保持不变）
-    displayName: "GoMail",                           // 显示名称（可修改）
-    description: "免费、安全、无广告的临时邮箱服务",    // 项目描述
+    displayName: "AugMails",                         // 显示名称
+    description: "基于Cloudflare的现代化临时邮箱服务",    // 项目描述
     version: "1.0.0",
   },
 
-  // 🌐 域名配置 - 这是最重要的配置部分
+  // 🌐 域名配置 - 根据您的需求配置
   domain: {
-    // 主域名 - 必须配置
-    primary: "your-domain.com",                      // 🔥 替换为你的主域名
+    // 主域名 - 邮箱服务的主域名
+    primary: "augmails.com",                         // 主邮箱域名
 
-    // 网站访问域名（通常与主域名相同）
-    website: "your-domain.com",                      // 🔥 替换为你的网站域名
+    // 网站访问域名 - Web应用的访问域名
+    website: "apps.augmails.com",                    // Web应用域名
 
-    // 🌟 多域名支持（可选）- 添加备用域名提高可用性
+    // 🌟 多域名支持 - 备用邮箱域名
     additional: [
-      // "backup-domain.com",                       // 备用域名1
-      // "another-domain.xyz",                      // 备用域名2
-      // "subdomain.dpdns.org",                     // 免费子域名
+      "55mails.com",                                 // 备用域名1
+      "augmentmails.com",                            // 备用域名2
+      "cusmails.com",                                // 备用域名3
     ],
 
     // 域名选择策略
@@ -69,12 +68,14 @@ module.exports = {
 
     // 邮件配置 - 重要！
     email: {
-      domain: "your-domain.com",                    // 🔥 主邮件域名（与 domain.primary 保持一致）
+      domain: "augmails.com",                       // 主邮件域名（与 domain.primary 保持一致）
 
       // 支持的所有邮件域名（自动生成，包含主域名+额外域名）
       supportedDomains: [
-        "your-domain.com",                          // 主域名
-        // 如果配置了 domain.additional，会自动添加到这里
+        "augmails.com",                             // 主域名
+        "55mails.com",                              // 备用域名1
+        "augmentmails.com",                         // 备用域名2
+        "cusmails.com",                             // 备用域名3
       ],
     },
   },
@@ -90,8 +91,8 @@ module.exports = {
   ui: {
     primaryColor: "#2563eb",           // 主题色
     autoRefreshInterval: 10,           // 自动刷新间隔(秒)
-    brandName: "GoMail",               // 品牌名称
-    tagline: "临时邮箱服务",           // 标语
+    brandName: "AugMails",             // 品牌名称
+    tagline: "现代化临时邮箱服务",      // 标语
   },
 
   // 📊 统计和广告配置 (可选)

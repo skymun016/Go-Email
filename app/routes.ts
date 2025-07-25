@@ -17,8 +17,6 @@ export default [
 		route("/mail/:id", "routes/mail.$id.tsx"),
 	]),
 	route("/attachment/:id", "routes/attachment.$id.tsx"),
-	route("/dev/email-handler", "routes/dev.email-handler.tsx"),
-	route("/dev/init-admin", "routes/dev.init-admin.ts"),
 
 	// 管理员路由
 	route("/admin", "routes/admin.ts"),

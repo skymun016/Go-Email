@@ -1,0 +1,39 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "gomail-app",
+  "compatibility_date": "2024-01-01",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "main": "workers/app.ts",
+  "observability": {
+    "enabled": true
+  },
+  "send_email": [
+    {
+      "name": "augmails.com"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "gomail-kv"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "gomail-database",
+      "migrations_dir": "drizzle/migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "gomail-attachments",
+      "bucket_name": "gomail-attachments",
+      "preview_bucket_name": "gomail-attachments"
+    }
+  ],
+  "assets": {
+    "directory": "public"
+  }
+}
