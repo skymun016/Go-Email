@@ -32,10 +32,90 @@ import {
 	createDB,
 	getEmailsByAddress,
 	getMailboxStats,
+	getEmailById,
+	getEmailAttachments,
+	markEmailAsRead,
 } from "~/lib/db";
 import { APP_CONFIG, getDatabase } from "~/config/app";
 import { SimpleAdsBar } from "~/components/SimpleAdsBar";
 import { WebApplicationStructuredData, OrganizationStructuredData, WebSiteStructuredData } from "~/components/StructuredData";
+
+// 生成邮件 HTML 内容
+function generateEmailHTML(email: {
+	fromAddress: string;
+	toAddress: string;
+	subject?: string | null;
+	htmlContent?: string | null;
+	textContent?: string | null;
+	receivedAt: Date;
+}) {
+	const content =
+		email.htmlContent || email.textContent?.replace(/\n/g, "<br>") || "";
+
+	return `
+		<!DOCTYPE html>
+		<html>
+		<head>
+			<meta charset="UTF-8">
+			<meta name="viewport" content="width=device-width, initial-scale=1.0">
+			<title>邮件内容</title>
+			<style>
+				body {
+					font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+					line-height: 1.6;
+					margin: 20px;
+					color: #333;
+					background: white;
+				}
+				.email-content {
+					max-width: 100%;
+					word-wrap: break-word;
+				}
+				img {
+					max-width: 100%;
+					height: auto;
+				}
+				a {
+					color: #2563eb;
+					text-decoration: underline;
+				}
+				blockquote {
+					border-left: 4px solid #e5e7eb;
+					margin: 1em 0;
+					padding: 0 1em;
+					color: #6b7280;
+				}
+				pre {
+					background: #f3f4f6;
+					padding: 1em;
+					border-radius: 6px;
+					overflow-x: auto;
+					white-space: pre-wrap;
+				}
+				table {
+					border-collapse: collapse;
+					width: 100%;
+					margin: 1em 0;
+				}
+				th, td {
+					border: 1px solid #e5e7eb;
+					padding: 8px 12px;
+					text-align: left;
+				}
+				th {
+					background: #f9fafb;
+					font-weight: 600;
+				}
+			</style>
+		</head>
+		<body>
+			<div class="email-content">
+				${content}
+			</div>
+		</body>
+		</html>
+	`;
+}
 
 export function meta(_: Route.MetaArgs) {
 	return [
@@ -100,6 +180,52 @@ export function meta(_: Route.MetaArgs) {
 	];
 }
 
+export async function action({ request, context }: Route.ActionArgs) {
+	const env = context?.cloudflare?.env;
+
+	if (!env) {
+		return data({ error: "环境配置错误" }, { status: 500 });
+	}
+
+	const formData = await request.formData();
+	const emailId = formData.get("emailId") as string;
+
+	if (!emailId) {
+		return data({ error: "邮件ID是必需的" }, { status: 400 });
+	}
+
+	try {
+		const db = createDB(getDatabase(env));
+
+		// 获取邮件详情
+		const email = await getEmailById(db, emailId);
+
+		if (!email) {
+			return data({ error: "邮件未找到" }, { status: 404 });
+		}
+
+		// 获取附件列表
+		const attachments = await getEmailAttachments(db, emailId);
+
+		// 标记邮件为已读
+		if (!email.isRead) {
+			await markEmailAsRead(db, emailId);
+		}
+
+		// 生成邮件 HTML 内容
+		const emailHTML = generateEmailHTML(email);
+
+		return data({
+			email,
+			attachments,
+			emailHTML,
+		});
+	} catch (error) {
+		console.error("Error loading email:", error);
+		return data({ error: "获取邮件详情失败" }, { status: 500 });
+	}
+}
+
 export async function loader({ request, context }: Route.LoaderArgs) {
 	const env = context?.cloudflare?.env;
 	
@@ -154,7 +280,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 				
 				return {
 					...mailbox,
-					assignedAt: userMailbox.assignedAt,
+					assignedAt: userMailbox.createdAt,
 					stats,
 				};
 			})
@@ -214,23 +340,14 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 	}
 }
 
-export async function action({ request, context }: Route.ActionArgs) {
-	const env = context?.cloudflare?.env;
-	const formData = await request.formData();
-	const action = formData.get("action");
-
-	if (action === "refresh") {
-		// 刷新邮件列表
-		return redirect("/");
-	}
-
-	return null;
-}
-
 export default function Home({ loaderData }: Route.ComponentProps) {
 	const navigation = useNavigation();
 	const revalidator = useRevalidator();
 	const fetcher = useFetcher();
+
+	// 邮件预览状态管理
+	const [selectedEmailId, setSelectedEmailId] = React.useState<string | null>(null);
+	const [selectedEmailData, setSelectedEmailData] = React.useState<any>(null);
 
 	const isAutoRefreshing = revalidator.state === "loading";
 
@@ -266,6 +383,23 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 			window.removeEventListener("focus", handleFocus);
 		};
 	}, [navigation.state, revalidator, loaderData.isLoggedIn]);
+
+	// 处理邮件选择
+	const handleEmailSelect = async (emailId: string) => {
+		setSelectedEmailId(emailId);
+
+		// 使用 fetcher 获取邮件详情
+		const formData = new FormData();
+		formData.append("emailId", emailId);
+		fetcher.submit(formData, { method: "post" });
+	};
+
+	// 监听 fetcher 数据变化
+	React.useEffect(() => {
+		if (fetcher.data && !fetcher.data.error) {
+			setSelectedEmailData(fetcher.data);
+		}
+	}, [fetcher.data]);
 
 	return (
 		<div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-blue-50">
@@ -437,9 +571,9 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 						</Card>
 					) : (
 						// 已登录且有邮箱 - 显示邮箱管理界面
-						<div className="grid lg:grid-cols-2 gap-8">
-							{/* 左侧：邮箱选择器和当前邮箱信息 */}
-							<div className="space-y-6">
+						<div className="grid lg:grid-cols-3 gap-6 h-[600px]">
+							{/* 第一列：邮箱管理 */}
+							<div className="space-y-6 h-[600px] overflow-y-auto">
 								{/* 邮箱选择器 */}
 								<Card className="border-0 shadow-xl bg-gradient-to-br from-white to-blue-50">
 									<CardHeader className="pb-4">
@@ -547,7 +681,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
 
 
-							{/* 右侧：收件箱 */}
+							{/* 第二列：邮件列表 */}
 							<div>
 								<Card className="h-full border-0 shadow-xl bg-gradient-to-br from-white to-blue-50">
 									<CardHeader className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-t-lg">
@@ -592,7 +726,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 										</div>
 									</CardHeader>
 									<CardContent className="p-0">
-										<ScrollArea className="h-[500px]">
+										<ScrollArea className="h-[480px]">
 											{loaderData.emails.length === 0 ? (
 												<div className="flex flex-col items-center justify-center h-full p-8 text-center">
 													<div className="bg-gradient-to-r from-gray-100 to-blue-100 rounded-full w-16 h-16 flex items-center justify-center mb-4 shadow-lg">
@@ -610,19 +744,173 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 											) : (
 												<div className="divide-y divide-gray-100">
 													{loaderData.emails.map((mail: any) => (
-														<MailItem
+														<div
 															key={mail.id}
-															id={mail.id}
-															name={mail.name}
-															email={mail.email}
-															subject={mail.subject}
-															date={mail.date}
-															isRead={mail.isRead}
-														/>
+															className={`group relative transition-all duration-200 hover:shadow-md cursor-pointer ${
+																!mail.isRead && "bg-gradient-to-r from-blue-50 to-cyan-50"
+															} ${selectedEmailId === mail.id ? "bg-blue-100 border-l-4 border-blue-500" : ""}`}
+															onClick={() => handleEmailSelect(mail.id)}
+														>
+															{!mail.isRead && (
+																<div className="absolute left-3 top-1/2 transform -translate-y-1/2 w-3 h-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full shadow-lg animate-pulse" />
+															)}
+
+															<div className="flex items-start gap-4 ml-6 p-4 hover:bg-gray-50 transition-colors">
+																{/* Avatar */}
+																<div className="relative flex-shrink-0">
+																	<div className={`w-12 h-12 ring-2 ring-white shadow-lg group-hover:ring-blue-200 transition-all rounded-full flex items-center justify-center ${
+																		!mail.isRead
+																			? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white"
+																			: "bg-gray-100 text-gray-600"
+																	}`}>
+																		<span className="text-sm font-bold">
+																			{mail.name.slice(0, 2).toUpperCase()}
+																		</span>
+																	</div>
+																	{!mail.isRead && (
+																		<div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-orange-400 to-red-400 rounded-full flex items-center justify-center">
+																			<span className="text-white text-xs font-bold">●</span>
+																		</div>
+																	)}
+																</div>
+
+																{/* Content */}
+																<div className="flex-1 min-w-0 space-y-2">
+																	{/* Header row */}
+																	<div className="flex items-center justify-between">
+																		<span className={`text-base font-semibold truncate ${
+																			!mail.isRead ? "text-gray-900" : "text-gray-700"
+																		}`}>
+																			{mail.name || "未知发件人"}
+																		</span>
+																		<div className="flex items-center gap-2 flex-shrink-0 ml-3">
+																			{!mail.isRead && (
+																				<span className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+																					NEW
+																				</span>
+																			)}
+																			<span className={`text-xs font-medium px-2 py-1 rounded-full ${
+																				!mail.isRead
+																					? "bg-blue-100 text-blue-700"
+																					: "bg-gray-100 text-gray-600"
+																			}`}>
+																				{new Date(mail.date).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })}
+																			</span>
+																		</div>
+																	</div>
+
+																	{/* Email address */}
+																	<div className="flex items-center gap-2">
+																		<span className="text-blue-600 text-xs">📧</span>
+																		<span className="text-sm text-gray-600 font-mono truncate">
+																			{mail.email}
+																		</span>
+																	</div>
+
+																	{/* Subject */}
+																	<div className="flex items-start gap-2">
+																		<span className="text-gray-400 text-xs mt-0.5">💬</span>
+																		<p className={`text-sm leading-relaxed line-clamp-2 ${
+																			!mail.isRead
+																				? "text-gray-900 font-medium"
+																				: "text-gray-600"
+																		}`}>
+																			{mail.subject || "📭 (无主题)"}
+																		</p>
+																	</div>
+																</div>
+															</div>
+
+															{/* Selection indicator */}
+															{selectedEmailId === mail.id && (
+																<div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+																	<div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+																</div>
+															)}
+														</div>
 													))}
 												</div>
 											)}
 										</ScrollArea>
+									</CardContent>
+								</Card>
+							</div>
+
+							{/* 第三列：邮件预览 */}
+							<div>
+								<Card className="h-full border-0 shadow-xl bg-gradient-to-br from-white to-purple-50">
+									<CardHeader className="bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-t-lg">
+										<CardTitle className="flex items-center space-x-2 text-white">
+											<Eye className="h-5 w-5" />
+											<span className="text-lg font-bold">邮件预览</span>
+										</CardTitle>
+									</CardHeader>
+									<CardContent className="p-0 h-[480px]">
+										{selectedEmailData ? (
+											<div className="h-full flex flex-col">
+												{/* 邮件头部信息 */}
+												<div className="p-4 border-b border-gray-200 bg-gray-50">
+													<div className="space-y-2">
+														<div className="flex items-center justify-between">
+															<span className="text-sm font-medium text-gray-600">发件人</span>
+															<span className="text-sm text-gray-900 font-mono">
+																{selectedEmailData.email.fromAddress}
+															</span>
+														</div>
+														<div className="flex items-center justify-between">
+															<span className="text-sm font-medium text-gray-600">收件人</span>
+															<span className="text-sm text-gray-900 font-mono">
+																{selectedEmailData.email.toAddress}
+															</span>
+														</div>
+														<div className="flex items-center justify-between">
+															<span className="text-sm font-medium text-gray-600">主题</span>
+															<span className="text-sm text-gray-900 font-semibold">
+																{selectedEmailData.email.subject || "(无主题)"}
+															</span>
+														</div>
+														<div className="flex items-center justify-between">
+															<span className="text-sm font-medium text-gray-600">时间</span>
+															<span className="text-sm text-gray-900">
+																{new Date(selectedEmailData.email.receivedAt).toLocaleString('zh-CN')}
+															</span>
+														</div>
+														{selectedEmailData.attachments && selectedEmailData.attachments.length > 0 && (
+															<div className="flex items-center justify-between">
+																<span className="text-sm font-medium text-gray-600">附件</span>
+																<span className="text-sm text-blue-600">
+																	{selectedEmailData.attachments.length} 个附件
+																</span>
+															</div>
+														)}
+													</div>
+												</div>
+
+												{/* 邮件内容 */}
+												<div className="flex-1 min-h-0">
+													<iframe
+														srcDoc={selectedEmailData.emailHTML}
+														className="w-full h-full border-0 bg-white"
+														sandbox="allow-same-origin"
+														title="邮件内容"
+													/>
+												</div>
+											</div>
+										) : (
+											<div className="h-full flex flex-col items-center justify-center p-8 text-center">
+												<div className="bg-gradient-to-r from-purple-100 to-pink-100 rounded-full w-16 h-16 flex items-center justify-center mb-4 shadow-lg">
+													<Eye className="h-8 w-8 text-purple-400" />
+												</div>
+												<h3 className="text-lg font-semibold text-gray-700 mb-2">
+													请选择邮件查看内容
+												</h3>
+												<p className="text-gray-500 text-sm leading-relaxed">
+													点击左侧邮件列表中的任意邮件
+													<br />
+													<span className="text-purple-600 font-medium">即可在此处预览邮件内容</span>
+												</p>
+											</div>
+										)}
 									</CardContent>
 								</Card>
 							</div>
