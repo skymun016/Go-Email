@@ -1,8 +1,9 @@
-import { Mail, Menu, X } from "lucide-react";
+import { Mail, Menu, X, User, LogOut } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 import { Button } from "~/components/ui/button";
 import { APP_CONFIG } from "~/config/app";
+import type { User as UserType } from "~/db/schema";
 
 // GitHub 图标组件
 const GitHubIcon = ({ className }: { className?: string }) => (
@@ -16,8 +17,15 @@ const GitHubIcon = ({ className }: { className?: string }) => (
 	</svg>
 );
 
-export function Navigation({ currentPath = "/" }: { currentPath?: string }) {
+export function Navigation({
+	currentPath = "/",
+	user = null
+}: {
+	currentPath?: string;
+	user?: Omit<UserType, 'passwordHash'> | null;
+}) {
 	const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+	const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
 	const navItems = [
 		{ href: "/", label: "首页", description: "获取临时邮箱" },
@@ -72,12 +80,60 @@ export function Navigation({ currentPath = "/" }: { currentPath?: string }) {
 							<GitHubIcon className="w-4 h-4" />
 							GitHub
 						</a>
-						<Button
-							asChild
-							className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
-						>
-							<Link to="/">开始使用</Link>
-						</Button>
+
+						{/* 用户状态相关按钮 */}
+						{user ? (
+							// 已登录用户
+							<div className="relative">
+								<button
+									onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+									className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+								>
+									<User className="w-4 h-4" />
+									{user.username}
+								</button>
+
+								{/* 用户下拉菜单 */}
+								{isUserMenuOpen && (
+									<div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+										<Link
+											to="/dashboard"
+											className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+											onClick={() => setIsUserMenuOpen(false)}
+										>
+											我的邮箱
+										</Link>
+										<hr className="my-1" />
+										<Link
+											to="/logout"
+											className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+											onClick={() => setIsUserMenuOpen(false)}
+										>
+											<LogOut className="w-4 h-4" />
+											退出登录
+										</Link>
+									</div>
+								)}
+							</div>
+						) : (
+							// 未登录用户
+							<div className="flex items-center space-x-3">
+								<Link
+									to="/login"
+									className="px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+								>
+									登录
+								</Link>
+								{APP_CONFIG.user.registrationEnabled && (
+									<Button
+										asChild
+										className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+									>
+										<Link to="/register">注册</Link>
+									</Button>
+								)}
+							</div>
+						)}
 					</nav>
 
 					{/* Mobile Menu Button */}
@@ -133,14 +189,65 @@ export function Navigation({ currentPath = "/" }: { currentPath?: string }) {
 									</div>
 								</div>
 							</a>
-							<div className="pt-2">
-								<Button
-									asChild
-									className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
-								>
-									<Link to="/">开始使用</Link>
-								</Button>
-							</div>
+
+							{/* 移动端用户状态 */}
+							{user ? (
+								// 已登录用户
+								<>
+									<Link
+										to="/dashboard"
+										className="flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+										onClick={() => setIsMobileMenuOpen(false)}
+									>
+										<User className="w-4 h-4" />
+										<div>
+											<div>我的邮箱</div>
+											<div className="text-xs text-gray-500 mt-1">
+												{user.username}
+											</div>
+										</div>
+									</Link>
+									<Link
+										to="/logout"
+										className="flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+										onClick={() => setIsMobileMenuOpen(false)}
+									>
+										<LogOut className="w-4 h-4" />
+										<div>
+											<div>退出登录</div>
+											<div className="text-xs text-gray-500 mt-1">
+												安全退出账户
+											</div>
+										</div>
+									</Link>
+								</>
+							) : (
+								// 未登录用户
+								<>
+									<Link
+										to="/login"
+										className="block px-4 py-3 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+										onClick={() => setIsMobileMenuOpen(false)}
+									>
+										<div>
+											<div>登录</div>
+											<div className="text-xs text-gray-500 mt-1">
+												登录到您的账户
+											</div>
+										</div>
+									</Link>
+									{APP_CONFIG.user.registrationEnabled && (
+										<div className="pt-2">
+											<Button
+												asChild
+												className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+											>
+												<Link to="/register">注册账户</Link>
+											</Button>
+										</div>
+									)}
+								</>
+							)}
 						</div>
 					</nav>
 				)}

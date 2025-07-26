@@ -8,6 +8,17 @@ import {
 export default [
 	layout("routes/layout.tsx", [
 		index("routes/home.tsx"),
+
+		// 用户认证路由
+		route("/login", "routes/login.tsx"),
+		route("/register", "routes/register.tsx"),
+		route("/logout", "routes/logout.ts"),
+
+		// 用户Dashboard路由
+		route("/dashboard", "routes/dashboard.tsx"),
+		route("/mailbox/:id", "routes/mailbox.$id.tsx"),
+
+		// 其他页面路由
 		route("/about", "routes/about.tsx"),
 		route("/api-docs", "routes/api-docs.tsx"),
 		route("/privacy", "routes/privacy.tsx"),
@@ -22,6 +33,8 @@ export default [
 	route("/admin", "routes/admin.ts"),
 	route("/admin-login", "routes/admin-login.tsx"),
 	route("/admin/dashboard", "routes/admin.dashboard.tsx"),
+	route("/admin/users", "routes/admin.users.tsx"),
+	route("/admin/users/:id", "routes/admin.users.$id.tsx"),
 	route("/admin/tokens", "routes/admin.tokens.tsx"),
 	route("/admin/emails", "routes/admin.emails.tsx"),
 	route("/admin/settings", "routes/admin.settings.tsx"),

@@ -12,10 +12,15 @@ export const mailboxes = sqliteTable(
 			.$defaultFn(() => new Date()),
 		expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
 		isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+		// 新增字段：邮箱所有权
+		ownerId: text("owner_id"), // 邮箱所有者ID，null表示匿名邮箱
+		ownerType: text("owner_type").default("anonymous"), // "user" | "anonymous"
 	},
 	(table) => [
 		index("idx_mailboxes_email").on(table.email),
 		index("idx_mailboxes_expires_at").on(table.expiresAt),
+		// 新增索引：优化所有权查询
+		index("idx_mailboxes_owner").on(table.ownerId, table.ownerType),
 	],
 );
 
@@ -124,6 +129,55 @@ export const tokenUsageLogs = sqliteTable(
 	],
 );
 
+// 用户表 - 存储注册用户信息
+export const users = sqliteTable(
+	"users",
+	{
+		id: text("id").primaryKey(),
+		username: text("username").notNull().unique(),
+		email: text("email").notNull(), // 必需：用户联系邮箱
+		passwordHash: text("password_hash").notNull(),
+		displayName: text("display_name"), // 显示名称
+		isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+		emailQuota: integer("email_quota").notNull().default(5), // 邮箱配额
+		quotaUsed: integer("quota_used").notNull().default(0), // 已使用配额
+		expiresAt: integer("expires_at", { mode: "timestamp" }), // 用户过期时间
+		createdAt: integer("created_at", { mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+		updatedAt: integer("updated_at", { mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+		lastLoginAt: integer("last_login_at", { mode: "timestamp" }),
+	},
+	(table) => [
+		index("idx_users_username").on(table.username),
+		index("idx_users_is_active").on(table.isActive),
+		index("idx_users_expires_at").on(table.expiresAt),
+	],
+);
+
+// 用户邮箱关联表 - 存储用户与邮箱的关联关系
+export const userMailboxes = sqliteTable(
+	"user_mailboxes",
+	{
+		id: text("id").primaryKey(),
+		userId: text("user_id").notNull(),
+		mailboxId: text("mailbox_id").notNull(),
+		assignedEmail: text("assigned_email").notNull(), // 分配的邮箱地址
+		isPermanent: integer("is_permanent", { mode: "boolean" }).notNull().default(false),
+		createdAt: integer("created_at", { mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+	},
+	(table) => [
+		index("idx_user_mailboxes_user_id").on(table.userId),
+		index("idx_user_mailboxes_mailbox_id").on(table.mailboxId),
+		// 复合索引优化查询
+		index("idx_user_mailboxes_user_mailbox").on(table.userId, table.mailboxId),
+	],
+);
+
 // 管理员表
 export const admins = sqliteTable(
 	"admins",
@@ -144,6 +198,22 @@ export const admins = sqliteTable(
 // 定义关系 - 使用 relations 来表示表之间的关系，而不是数据库外键
 export const mailboxesRelations = relations(mailboxes, ({ many }) => ({
 	emails: many(emails),
+	userMailboxes: many(userMailboxes),
+}));
+
+export const usersRelations = relations(users, ({ many }) => ({
+	userMailboxes: many(userMailboxes),
+}));
+
+export const userMailboxesRelations = relations(userMailboxes, ({ one }) => ({
+	user: one(users, {
+		fields: [userMailboxes.userId],
+		references: [users.id],
+	}),
+	mailbox: one(mailboxes, {
+		fields: [userMailboxes.mailboxId],
+		references: [mailboxes.id],
+	}),
 }));
 
 export const emailsRelations = relations(emails, ({ one, many }) => ({
@@ -181,6 +251,13 @@ export type NewTokenUsageLog = typeof tokenUsageLogs.$inferInsert;
 
 export type Admin = typeof admins.$inferSelect;
 export type NewAdmin = typeof admins.$inferInsert;
+
+// 用户管理相关类型
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+
+export type UserMailbox = typeof userMailboxes.$inferSelect;
+export type NewUserMailbox = typeof userMailboxes.$inferInsert;
 
 // 导出类型
 export type Mailbox = typeof mailboxes.$inferSelect;

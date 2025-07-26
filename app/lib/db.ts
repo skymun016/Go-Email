@@ -15,12 +15,18 @@ import {
 	type NewTokenUsageLog,
 	type Admin,
 	type NewAdmin,
+	type User,
+	type NewUser,
+	type UserMailbox,
+	type NewUserMailbox,
 	attachments,
 	emails,
 	mailboxes,
 	apiTokens,
 	tokenUsageLogs,
 	admins,
+	users,
+	userMailboxes,
 } from "~/db/schema";
 import { APP_CONFIG } from "~/config/app";
 
@@ -40,7 +46,9 @@ export function createDB(database?: D1Database) {
 				attachments,
 				apiTokens,
 				tokenUsageLogs,
-				admins
+				admins,
+				users,
+				userMailboxes
 			}
 		});
 	} catch (error) {
@@ -49,10 +57,12 @@ export function createDB(database?: D1Database) {
 	}
 }
 
-// 通过邮箱地址获取或创建邮箱（增强错误处理）
+// 通过邮箱地址获取或创建邮箱（增强错误处理，支持用户所有权）
 export async function getOrCreateMailbox(
 	db: ReturnType<typeof createDB>,
 	email: string,
+	ownerId?: string,
+	ownerType: "user" | "anonymous" = "anonymous"
 ): Promise<Mailbox> {
 	if (!email || typeof email !== 'string') {
 		throw new Error("Invalid email address provided");
@@ -79,19 +89,23 @@ export async function getOrCreateMailbox(
 			return existing[0];
 		}
 
-		// 创建新邮箱（根据配置设置过期时间）
-		const expiresAt = new Date(Date.now() + APP_CONFIG.email.expirationHours * 60 * 60 * 1000);
+		// 创建新邮箱（根据所有者类型设置过期时间）
+		const expiresAt = ownerType === "user"
+			? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // 用户邮箱1年过期
+			: new Date(Date.now() + APP_CONFIG.email.expirationHours * 60 * 60 * 1000); // 匿名邮箱24小时过期
 
 		const newMailbox: NewMailbox = {
 			id: nanoid(),
 			email,
 			expiresAt,
 			isActive: true,
+			ownerId,
+			ownerType,
 		};
 
 		await db.insert(mailboxes).values(newMailbox);
 
-		console.log(`✅ 创建新邮箱: ${email}, 过期时间: ${expiresAt.toISOString()}`);
+		console.log(`✅ 创建新邮箱: ${email} (${ownerType}), 过期时间: ${expiresAt.toISOString()}`);
 
 		return {
 			...newMailbox,
