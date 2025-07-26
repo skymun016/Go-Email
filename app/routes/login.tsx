@@ -45,7 +45,7 @@ export async function action({ request, context }: Route.ActionArgs) {
     return new Response(null, {
       status: 302,
       headers: {
-        Location: "/dashboard",
+        Location: "/",
         "Set-Cookie": await commitUserSession(session, env),
       },
     });
@@ -61,15 +61,15 @@ export async function action({ request, context }: Route.ActionArgs) {
 export async function loader({ request, context }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
   
-  // 如果用户已登录，重定向到dashboard
+  // 如果用户已登录，重定向到首页
   try {
     const session = await getUserSession(request.headers.get("Cookie"), env);
     const userId = session.get("userId");
-    
+
     if (userId) {
       return new Response(null, {
         status: 302,
-        headers: { Location: "/dashboard" }
+        headers: { Location: "/" }
       });
     }
   } catch (error) {

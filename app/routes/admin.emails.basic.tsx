@@ -1,47 +1,44 @@
 /**
- * 管理员邮件管理页面 - 新版本
+ * 管理员邮件管理页面 - 基础版本
  */
 
-import type { Route } from "./+types/admin.emails";
+import type { Route } from "./+types/admin.emails.basic";
 import { Form, Link, useLoaderData, useSearchParams } from "react-router";
 import { requireAdmin } from "~/lib/auth";
 import { createDB } from "~/lib/db";
 import { getDatabase } from "~/config/app";
-import { desc, like, and, gte, lte, eq, or } from "drizzle-orm";
+import { desc, like, and, eq, or } from "drizzle-orm";
 import { emails } from "~/db/schema";
-import { 
-  Search, 
-  Mail, 
+import {
+  Search,
+  Mail,
   Calendar,
-  User,
-  Trash2,
   Eye,
   Filter,
   Download,
-  RefreshCw
+  RefreshCw,
+  Trash2
 } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
-  
+
   // 要求管理员权限
   await requireAdmin(request, env);
   const db = createDB(getDatabase(env));
-  
+
   const url = new URL(request.url);
   const searchQuery = url.searchParams.get("q") || "";
-  const mailboxFilter = url.searchParams.get("mailbox") || "";
-  const dateFilter = url.searchParams.get("date") || "";
   const readFilter = url.searchParams.get("read") || "";
   const page = parseInt(url.searchParams.get("page") || "1");
   const pageSize = 20;
-  
+
   try {
     // 构建查询条件
     const conditions = [];
-    
+
     if (searchQuery) {
       conditions.push(
         or(
@@ -52,123 +49,90 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       );
     }
 
-    if (mailboxFilter) {
-      conditions.push(eq(emails.mailboxId, mailboxFilter));
-    }
-
-    if (dateFilter) {
-      const filterDate = new Date(dateFilter);
-      const nextDay = new Date(filterDate);
-      nextDay.setDate(nextDay.getDate() + 1);
-
-      conditions.push(
-        and(
-          gte(emails.receivedAt, filterDate),
-          lte(emails.receivedAt, nextDay)
-        )
-      );
-    }
-
     if (readFilter !== "") {
       conditions.push(eq(emails.isRead, readFilter === "true"));
     }
-    
+
     // 获取邮件列表
-    const emailList = await db.query.emails.findMany({
-      where: conditions.length > 0 ? and(...conditions) : undefined,
-      orderBy: [desc(emails.receivedAt)],
-      limit: pageSize,
-      offset: (page - 1) * pageSize,
-    });
-    
+    const emailList = await db.select()
+      .from(emails)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(emails.receivedAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize);
+
     // 获取每个邮件的邮箱信息
     const emailsWithMailbox = await Promise.all(
       emailList.map(async (email) => {
         const mailbox = await db.query.mailboxes.findFirst({
           where: (mailboxes, { eq }) => eq(mailboxes.id, email.mailboxId),
         });
-        
-        // 获取邮箱分配信息
-        let assignedUser = null;
-        if (mailbox) {
-          const userAssignment = await db.query.userMailboxes.findFirst({
-            where: (userMailboxes, { eq }) => eq(userMailboxes.mailboxId, mailbox.id),
-          });
-          
-          if (userAssignment) {
-            assignedUser = await db.query.users.findFirst({
-              where: (users, { eq }) => eq(users.id, userAssignment.userId),
-            });
-          }
-        }
-        
+
         return {
           ...email,
           mailbox,
-          assignedUser,
         };
       })
     );
-    
+
     // 获取总数用于分页
-    const totalEmails = await db.query.emails.findMany({
-      where: conditions.length > 0 ? and(...conditions) : undefined,
-    });
-    
-    // 获取邮箱列表用于筛选
-    const allMailboxes = await db.query.mailboxes.findMany({
-      orderBy: [desc(db.query.mailboxes.createdAt)],
-      limit: 100,
-    });
-    
+    const totalResult = await db.select()
+      .from(emails)
+      .where(conditions.length > 0 ? and(...conditions) : undefined);
+
     // 获取统计信息
-    const allEmailsForStats = await db.query.emails.findMany();
+    const allEmails = await db.query.emails.findMany();
     const stats = {
-      totalEmails: allEmailsForStats.length,
-      todayEmails: allEmailsForStats.filter(email => {
+      totalEmails: allEmails.length,
+      todayEmails: allEmails.filter(email => {
         const today = new Date();
         const emailDate = new Date(email.receivedAt);
         return emailDate.toDateString() === today.toDateString();
       }).length,
-      unreadEmails: allEmailsForStats.filter(email => !email.isRead).length,
+      unreadEmails: allEmails.filter(email => !email.isRead).length,
     };
-    
+
     return {
       emails: emailsWithMailbox,
-      totalCount: totalEmails.length,
+      totalCount: totalResult.length,
       currentPage: page,
       pageSize,
-      totalPages: Math.ceil(totalEmails.length / pageSize),
+      totalPages: Math.ceil(totalResult.length / pageSize),
       searchQuery,
-      mailboxFilter,
-      dateFilter,
       readFilter,
-      mailboxes: allMailboxes,
       stats,
     };
-    
+
   } catch (error) {
     console.error("Error loading emails:", error);
-    throw new Response("服务器错误", { status: 500 });
+    return {
+      emails: [],
+      totalCount: 0,
+      currentPage: 1,
+      pageSize: 20,
+      totalPages: 0,
+      searchQuery: "",
+      readFilter: "",
+      stats: { totalEmails: 0, todayEmails: 0, unreadEmails: 0 },
+      error: error instanceof Error ? error.message : "未知错误",
+    };
   }
 }
 
-export default function AdminEmails({ loaderData }: Route.ComponentProps) {
-  const { 
-    emails, 
-    totalCount, 
-    currentPage, 
-    totalPages, 
-    searchQuery, 
-    mailboxFilter, 
-    dateFilter,
+export default function AdminEmailsBasic({ loaderData }: Route.ComponentProps) {
+  const {
+    emails,
+    totalCount,
+    currentPage,
+    totalPages,
+    searchQuery,
     readFilter,
-    mailboxes,
-    stats 
+    stats,
+    error
   } = loaderData;
-  
+
   const [searchParams] = useSearchParams();
-  
+
   // 格式化日期
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat('zh-CN', {
@@ -179,13 +143,13 @@ export default function AdminEmails({ loaderData }: Route.ComponentProps) {
       minute: '2-digit',
     }).format(new Date(date));
   };
-  
+
   // 截断文本
   const truncateText = (text: string, maxLength: number = 100) => {
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + "...";
   };
-  
+
   return (
     <div className="space-y-6">
       {/* 页面头部 */}
@@ -209,6 +173,15 @@ export default function AdminEmails({ loaderData }: Route.ComponentProps) {
           </Button>
         </div>
       </div>
+
+      {/* 错误信息 */}
+      {error && (
+        <div className="rounded-md bg-red-50 p-4">
+          <div className="text-sm text-red-700">
+            错误: {error}
+          </div>
+        </div>
+      )}
 
       {/* 统计信息 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -274,9 +247,9 @@ export default function AdminEmails({ loaderData }: Route.ComponentProps) {
             搜索和筛选
           </h2>
         </div>
-        
+
         <Form method="get" className="p-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* 搜索框 */}
             <div>
               <label htmlFor="q" className="block text-sm font-medium text-gray-700">
@@ -297,40 +270,6 @@ export default function AdminEmails({ loaderData }: Route.ComponentProps) {
               </div>
             </div>
 
-            {/* 邮箱筛选 */}
-            <div>
-              <label htmlFor="mailbox" className="block text-sm font-medium text-gray-700">
-                邮箱筛选
-              </label>
-              <select
-                name="mailbox"
-                id="mailbox"
-                defaultValue={mailboxFilter}
-                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-              >
-                <option value="">所有邮箱</option>
-                {mailboxes.map((mailbox) => (
-                  <option key={mailbox.id} value={mailbox.id}>
-                    {mailbox.email}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* 日期筛选 */}
-            <div>
-              <label htmlFor="date" className="block text-sm font-medium text-gray-700">
-                日期筛选
-              </label>
-              <input
-                type="date"
-                name="date"
-                id="date"
-                defaultValue={dateFilter}
-                className="mt-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
-              />
-            </div>
-
             {/* 阅读状态筛选 */}
             <div>
               <label htmlFor="read" className="block text-sm font-medium text-gray-700">
@@ -347,19 +286,20 @@ export default function AdminEmails({ loaderData }: Route.ComponentProps) {
                 <option value="false">未读</option>
               </select>
             </div>
-          </div>
 
-          <div className="flex justify-end space-x-3">
-            <Link
-              to="/admin/emails"
-              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-            >
-              清除筛选
-            </Link>
-            <Button type="submit">
-              <Filter className="w-4 h-4 mr-2" />
-              应用筛选
-            </Button>
+            {/* 操作按钮 */}
+            <div className="flex items-end space-x-3">
+              <Button type="submit">
+                <Filter className="w-4 h-4 mr-2" />
+                搜索
+              </Button>
+              <Link
+                to="/admin/emails"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                清除
+              </Link>
+            </div>
           </div>
         </Form>
       </div>
@@ -377,7 +317,7 @@ export default function AdminEmails({ loaderData }: Route.ComponentProps) {
             <Mail className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">没有找到邮件</h3>
             <p className="mt-1 text-sm text-gray-500">
-              尝试调整搜索条件或筛选器
+              {searchQuery || readFilter ? "尝试调整搜索条件或筛选器" : "系统中暂无邮件"}
             </p>
           </div>
         ) : (
@@ -431,11 +371,6 @@ export default function AdminEmails({ loaderData }: Route.ComponentProps) {
                       <div className="text-sm text-gray-900">
                         {email.mailbox?.email}
                       </div>
-                      {email.assignedUser && (
-                        <div className="text-xs text-gray-500">
-                          用户: {email.assignedUser.username}
-                        </div>
-                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Badge

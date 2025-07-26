@@ -1,21 +1,22 @@
 /**
- * 管理员用户管理页面
+ * 管理员邮箱管理页面
  */
 
-import type { Route } from "./+types/admin.users";
+import type { Route } from "./+types/admin.mailboxes";
 import { Link, useLoaderData } from "react-router";
 import { requireAdmin } from "~/lib/auth";
 import { createDB } from "~/lib/db";
 import { getDatabase } from "~/config/app";
 import { 
-  Users, 
   Mail, 
+  User, 
   Calendar, 
   Shield, 
   ShieldOff, 
   Plus,
   Settings,
-  Eye
+  Eye,
+  Search
 } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
@@ -28,45 +29,76 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const db = createDB(getDatabase(env));
   
   try {
-    // 获取所有用户及其邮箱统计
-    const users = await db.query.users.findMany({
-      orderBy: (users, { desc }) => [desc(users.createdAt)],
+    // 获取所有邮箱及其关联信息
+    const mailboxes = await db.query.mailboxes.findMany({
+      orderBy: (mailboxes, { desc }) => [desc(mailboxes.createdAt)],
     });
     
-    // 获取每个用户的邮箱统计
-    const usersWithStats = await Promise.all(
-      users.map(async (user) => {
-        // 获取用户邮箱数量
-        const mailboxCount = await db.query.userMailboxes.findMany({
-          where: (userMailboxes, { eq }) => eq(userMailboxes.userId, user.id),
+    // 获取每个邮箱的详细信息（简化查询）
+    const mailboxesWithInfo = await Promise.all(
+      mailboxes.map(async (mailbox) => {
+        // 获取邮箱的用户分配信息
+        const userAssignments = await db.query.userMailboxes.findMany({
+          where: (userMailboxes, { eq }) => eq(userMailboxes.mailboxId, mailbox.id),
         });
 
-        // 简化邮件统计 - 暂时设为0，避免复杂查询
-        const totalEmails = 0;
+        // 获取分配的用户信息
+        let assignedUser = null;
+        if (userAssignments.length > 0) {
+          assignedUser = await db.query.users.findFirst({
+            where: (users, { eq }) => eq(users.id, userAssignments[0].userId),
+          });
+        }
+
+        // 获取邮件数量
+        const emailCount = await db.query.emails.findMany({
+          where: (emails, { eq }) => eq(emails.mailboxId, mailbox.id),
+        });
+
+        // 获取未读邮件数量
+        const unreadCount = await db.query.emails.findMany({
+          where: (emails, { eq, and }) => and(
+            eq(emails.mailboxId, mailbox.id),
+            eq(emails.isRead, false)
+          ),
+        });
 
         return {
-          ...user,
-          mailboxCount: mailboxCount.length,
-          totalEmails,
-          quotaUsed: mailboxCount.length,
+          ...mailbox,
+          userAssignments,
+          emailCount: emailCount.length,
+          unreadCount: unreadCount.length,
+          isAssigned: userAssignments.length > 0,
+          assignedUser,
+          isPermanent: userAssignments[0]?.isPermanent || false,
         };
       })
     );
     
+    // 统计信息
+    const totalMailboxes = mailboxes.length;
+    const assignedMailboxes = mailboxesWithInfo.filter(m => m.isAssigned).length;
+    const unassignedMailboxes = totalMailboxes - assignedMailboxes;
+    const permanentMailboxes = mailboxesWithInfo.filter(m => m.isPermanent).length;
+    
     return {
-      users: usersWithStats,
-      totalUsers: users.length,
-      activeUsers: users.filter(u => u.isActive).length,
+      mailboxes: mailboxesWithInfo,
+      stats: {
+        totalMailboxes,
+        assignedMailboxes,
+        unassignedMailboxes,
+        permanentMailboxes,
+      }
     };
     
   } catch (error) {
-    console.error("Error loading users:", error);
+    console.error("Error loading mailboxes:", error);
     throw new Response("服务器错误", { status: 500 });
   }
 }
 
-export default function AdminUsers({ loaderData }: Route.ComponentProps) {
-  const { users, totalUsers, activeUsers } = loaderData;
+export default function AdminMailboxes({ loaderData }: Route.ComponentProps) {
+  const { mailboxes, stats } = loaderData;
   
   // 格式化日期
   const formatDate = (date: Date) => {
@@ -84,37 +116,37 @@ export default function AdminUsers({ loaderData }: Route.ComponentProps) {
       {/* 页面头部 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">用户管理</h1>
+          <h1 className="text-2xl font-bold text-gray-900">邮箱管理</h1>
           <p className="mt-1 text-sm text-gray-500">
-            管理系统中的所有用户账户
+            管理系统中的所有邮箱地址
           </p>
         </div>
         <div className="flex items-center space-x-3">
           <Button variant="outline" asChild>
-            <Link to="/admin/users/batch">
+            <Link to="/admin/mailboxes/batch">
               <Settings className="w-4 h-4 mr-2" />
               批量操作
             </Link>
           </Button>
           <Button asChild>
-            <Link to="/admin/users/create">
+            <Link to="/admin/mailboxes/create">
               <Plus className="w-4 h-4 mr-2" />
-              创建用户
+              创建邮箱
             </Link>
           </Button>
         </div>
       </div>
 
       {/* 统计卡片 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <Users className="h-8 w-8 text-blue-600" />
+              <Mail className="h-8 w-8 text-blue-600" />
             </div>
             <div className="ml-4">
-              <h3 className="text-lg font-medium text-gray-900">总用户数</h3>
-              <p className="text-2xl font-bold text-blue-600">{totalUsers}</p>
+              <h3 className="text-lg font-medium text-gray-900">总邮箱数</h3>
+              <p className="text-2xl font-bold text-blue-600">{stats.totalMailboxes}</p>
             </div>
           </div>
         </div>
@@ -122,11 +154,11 @@ export default function AdminUsers({ loaderData }: Route.ComponentProps) {
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <Shield className="h-8 w-8 text-green-600" />
+              <User className="h-8 w-8 text-green-600" />
             </div>
             <div className="ml-4">
-              <h3 className="text-lg font-medium text-gray-900">活跃用户</h3>
-              <p className="text-2xl font-bold text-green-600">{activeUsers}</p>
+              <h3 className="text-lg font-medium text-gray-900">已分配</h3>
+              <p className="text-2xl font-bold text-green-600">{stats.assignedMailboxes}</p>
             </div>
           </div>
         </div>
@@ -134,32 +166,44 @@ export default function AdminUsers({ loaderData }: Route.ComponentProps) {
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <ShieldOff className="h-8 w-8 text-red-600" />
+              <Search className="h-8 w-8 text-yellow-600" />
             </div>
             <div className="ml-4">
-              <h3 className="text-lg font-medium text-gray-900">禁用用户</h3>
-              <p className="text-2xl font-bold text-red-600">{totalUsers - activeUsers}</p>
+              <h3 className="text-lg font-medium text-gray-900">未分配</h3>
+              <p className="text-2xl font-bold text-yellow-600">{stats.unassignedMailboxes}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <Shield className="h-8 w-8 text-purple-600" />
+            </div>
+            <div className="ml-4">
+              <h3 className="text-lg font-medium text-gray-900">永久邮箱</h3>
+              <p className="text-2xl font-bold text-purple-600">{stats.permanentMailboxes}</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 用户列表 */}
+      {/* 邮箱列表 */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-medium text-gray-900">
-            用户列表
+            邮箱列表
           </h2>
         </div>
         
-        {users.length === 0 ? (
+        {mailboxes.length === 0 ? (
           <div className="px-6 py-12 text-center">
-            <Users className="mx-auto h-12 w-12 text-gray-400" />
+            <Mail className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-4 text-lg font-medium text-gray-900">
-              还没有用户
+              还没有邮箱
             </h3>
             <p className="mt-2 text-sm text-gray-500">
-              创建第一个用户开始管理
+              创建第一个邮箱开始管理
             </p>
           </div>
         ) : (
@@ -168,16 +212,16 @@ export default function AdminUsers({ loaderData }: Route.ComponentProps) {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    用户信息
+                    邮箱地址
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    状态
+                    分配状态
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    邮箱配额
+                    邮件统计
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    注册时间
+                    创建时间
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     操作
@@ -185,36 +229,46 @@ export default function AdminUsers({ loaderData }: Route.ComponentProps) {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {users.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
+                {mailboxes.map((mailbox) => (
+                  <tr key={mailbox.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-10 w-10">
                           <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                            <Users className="h-5 w-5 text-blue-600" />
+                            <Mail className="h-5 w-5 text-blue-600" />
                           </div>
                         </div>
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900">
-                            {user.username}
+                            {mailbox.email}
                           </div>
                           <div className="text-sm text-gray-500">
-                            {user.email}
+                            ID: {mailbox.id.substring(0, 8)}...
                           </div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex flex-col space-y-1">
-                        <Badge 
-                          variant={user.isActive ? "default" : "secondary"}
-                          className={user.isActive ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
-                        >
-                          {user.isActive ? "活跃" : "禁用"}
-                        </Badge>
-                        {user.expiresAt && new Date() > user.expiresAt && (
+                        {mailbox.isAssigned ? (
+                          <>
+                            <Badge variant="default" className="bg-green-100 text-green-800">
+                              已分配
+                            </Badge>
+                            {mailbox.assignedUser && (
+                              <div className="text-xs text-gray-500">
+                                用户: {mailbox.assignedUser.username}
+                              </div>
+                            )}
+                            {mailbox.isPermanent && (
+                              <Badge variant="secondary" className="bg-purple-100 text-purple-800">
+                                永久
+                              </Badge>
+                            )}
+                          </>
+                        ) : (
                           <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
-                            已过期
+                            未分配
                           </Badge>
                         )}
                       </div>
@@ -222,33 +276,30 @@ export default function AdminUsers({ loaderData }: Route.ComponentProps) {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       <div className="flex items-center">
                         <Mail className="h-4 w-4 text-gray-400 mr-2" />
-                        <span>{user.quotaUsed} / {user.emailQuota}</span>
+                        <span>{mailbox.emailCount} 封邮件</span>
                       </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {user.totalEmails} 封邮件
-                      </div>
+                      {mailbox.unreadCount > 0 && (
+                        <div className="text-xs text-red-600 mt-1">
+                          {mailbox.unreadCount} 未读
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <div className="flex items-center">
                         <Calendar className="h-4 w-4 mr-2" />
-                        {formatDate(user.createdAt)}
+                        {formatDate(mailbox.createdAt)}
                       </div>
-                      {user.expiresAt && (
-                        <div className="text-xs text-gray-400 mt-1">
-                          到期: {formatDate(user.expiresAt)}
-                        </div>
-                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center space-x-2">
                         <Button variant="outline" size="sm" asChild>
-                          <Link to={`/admin/users/${user.id}`}>
+                          <Link to={`/mailbox/${mailbox.id}`}>
                             <Eye className="w-4 h-4 mr-1" />
                             查看
                           </Link>
                         </Button>
                         <Button variant="outline" size="sm" asChild>
-                          <Link to={`/admin/users/${user.id}/edit`}>
+                          <Link to={`/admin/mailboxes/${mailbox.id}/manage`}>
                             <Settings className="w-4 h-4 mr-1" />
                             管理
                           </Link>

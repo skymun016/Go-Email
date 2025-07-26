@@ -286,7 +286,7 @@ export async function cleanupExpiredEmails(
 	}
 }
 
-// 获取邮箱统计信息
+// 获取邮箱统计信息（通过邮箱ID）
 export async function getMailboxStats(
 	db: ReturnType<typeof createDB>,
 	mailboxId: string,
@@ -303,6 +303,39 @@ export async function getMailboxStats(
 			.select({ count: count() })
 			.from(emails)
 			.where(and(eq(emails.mailboxId, mailboxId), eq(emails.isRead, false))),
+	]);
+
+	return {
+		total: totalResult[0]?.count || 0,
+		unread: unreadResult[0]?.count || 0,
+	};
+}
+
+// 获取邮箱统计信息（通过邮箱地址）
+export async function getMailboxStatsByEmail(
+	db: ReturnType<typeof createDB>,
+	email: string,
+): Promise<{
+	total: number;
+	unread: number;
+}> {
+	const now = new Date();
+
+	const [totalResult, unreadResult] = await Promise.all([
+		db
+			.select({ count: count() })
+			.from(emails)
+			.innerJoin(mailboxes, eq(emails.mailboxId, mailboxes.id))
+			.where(and(eq(mailboxes.email, email), gt(mailboxes.expiresAt, now))),
+		db
+			.select({ count: count() })
+			.from(emails)
+			.innerJoin(mailboxes, eq(emails.mailboxId, mailboxes.id))
+			.where(and(
+				eq(mailboxes.email, email),
+				gt(mailboxes.expiresAt, now),
+				eq(emails.isRead, false)
+			)),
 	]);
 
 	return {

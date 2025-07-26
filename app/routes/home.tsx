@@ -32,6 +32,7 @@ import {
 	createDB,
 	getEmailsByAddress,
 	getMailboxStats,
+	getMailboxStatsByEmail,
 	getEmailById,
 	getEmailAttachments,
 	markEmailAsRead,
@@ -208,8 +209,22 @@ export async function action({ request, context }: Route.ActionArgs) {
 		const attachments = await getEmailAttachments(db, emailId);
 
 		// 标记邮件为已读
+		let wasUnread = false;
 		if (!email.isRead) {
 			await markEmailAsRead(db, emailId);
+			wasUnread = true;
+		}
+
+		// 如果邮件被标记为已读，获取更新后的统计信息
+		let updatedStats = null;
+		if (wasUnread) {
+			// 获取邮箱信息
+			const mailbox = await db.query.mailboxes.findFirst({
+				where: (mailboxes, { eq }) => eq(mailboxes.id, email.mailboxId),
+			});
+			if (mailbox) {
+				updatedStats = await getMailboxStatsByEmail(db, mailbox.email);
+			}
 		}
 
 		// 生成邮件 HTML 内容
@@ -219,6 +234,8 @@ export async function action({ request, context }: Route.ActionArgs) {
 			email,
 			attachments,
 			emailHTML,
+			updatedStats,
+			wasUnread,
 		});
 	} catch (error) {
 		console.error("Error loading email:", error);
@@ -276,7 +293,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 				if (!mailbox) return null;
 				
 				// 获取邮箱统计信息
-				const stats = await getMailboxStats(db, mailbox.email);
+				const stats = await getMailboxStatsByEmail(db, mailbox.email);
 				
 				return {
 					...mailbox,
@@ -349,6 +366,9 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 	const [selectedEmailId, setSelectedEmailId] = React.useState<string | null>(null);
 	const [selectedEmailData, setSelectedEmailData] = React.useState<any>(null);
 
+	// 统计数据状态管理
+	const [currentStats, setCurrentStats] = React.useState(loaderData.stats);
+
 	const isAutoRefreshing = revalidator.state === "loading";
 
 	// 手动刷新邮件列表
@@ -398,8 +418,18 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 	React.useEffect(() => {
 		if (fetcher.data && !fetcher.data.error) {
 			setSelectedEmailData(fetcher.data);
+
+			// 如果邮件被标记为已读，更新统计数据
+			if (fetcher.data.wasUnread && fetcher.data.updatedStats) {
+				setCurrentStats(fetcher.data.updatedStats);
+			}
 		}
 	}, [fetcher.data]);
+
+	// 当 loaderData.stats 变化时，更新 currentStats
+	React.useEffect(() => {
+		setCurrentStats(loaderData.stats);
+	}, [loaderData.stats]);
 
 	return (
 		<div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-blue-50">
@@ -571,11 +601,11 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 						</Card>
 					) : (
 						// 已登录且有邮箱 - 显示邮箱管理界面
-						<div className="grid lg:grid-cols-3 gap-6 h-[600px]">
+						<div className="grid lg:grid-cols-3 gap-6">
 							{/* 第一列：邮箱管理 */}
-							<div className="space-y-6 h-[600px] overflow-y-auto">
+							<div className="space-y-6">
 								{/* 邮箱选择器 */}
-								<Card className="border-0 shadow-xl bg-gradient-to-br from-white to-blue-50">
+								<Card className="h-[600px] border-0 shadow-xl bg-gradient-to-br from-white to-blue-50 flex flex-col">
 									<CardHeader className="pb-4">
 										<CardTitle className="flex items-center space-x-3 text-xl">
 											<div className="bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl p-2.5 shadow-lg">
@@ -584,7 +614,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 											<span className="text-gray-800">邮箱切换</span>
 										</CardTitle>
 									</CardHeader>
-									<CardContent>
+									<CardContent className="flex-1 overflow-y-auto">
 										<div className="space-y-4">
 											<div>
 												<label htmlFor="mailbox-select" className="block text-sm font-medium text-gray-700 mb-2">
@@ -683,7 +713,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
 							{/* 第二列：邮件列表 */}
 							<div>
-								<Card className="h-full border-0 shadow-xl bg-gradient-to-br from-white to-blue-50">
+								<Card className="h-[600px] border-0 shadow-xl bg-gradient-to-br from-white to-blue-50 flex flex-col">
 									<CardHeader className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-t-lg">
 										<div className="flex items-center justify-between">
 											<div className="flex items-center gap-3">
@@ -696,10 +726,10 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 													</CardTitle>
 													<div className="flex items-center gap-3 mt-1">
 														<span className="bg-white/20 text-white px-3 py-1 rounded-full text-sm font-semibold">
-															🔥 {loaderData.stats.unread} 未读
+															🔥 {currentStats.unread} 未读
 														</span>
 														<span className="text-blue-100 text-sm">
-															📊 共 {loaderData.stats.total} 封邮件
+															📊 共 {currentStats.total} 封邮件
 														</span>
 													</div>
 												</div>
@@ -725,8 +755,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 											</Button>
 										</div>
 									</CardHeader>
-									<CardContent className="p-0">
-										<ScrollArea className="h-[480px]">
+									<CardContent className="p-0 flex-1 min-h-0">
+										<ScrollArea className="h-full">
 											{loaderData.emails.length === 0 ? (
 												<div className="flex flex-col items-center justify-center h-full p-8 text-center">
 													<div className="bg-gradient-to-r from-gray-100 to-blue-100 rounded-full w-16 h-16 flex items-center justify-center mb-4 shadow-lg">
@@ -838,14 +868,14 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
 							{/* 第三列：邮件预览 */}
 							<div>
-								<Card className="h-full border-0 shadow-xl bg-gradient-to-br from-white to-purple-50">
+								<Card className="h-[600px] border-0 shadow-xl bg-gradient-to-br from-white to-purple-50 flex flex-col">
 									<CardHeader className="bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-t-lg">
 										<CardTitle className="flex items-center space-x-2 text-white">
 											<Eye className="h-5 w-5" />
 											<span className="text-lg font-bold">邮件预览</span>
 										</CardTitle>
 									</CardHeader>
-									<CardContent className="p-0 h-[480px]">
+									<CardContent className="p-0 flex-1 min-h-0">
 										{selectedEmailData ? (
 											<div className="h-full flex flex-col">
 												{/* 邮件头部信息 */}

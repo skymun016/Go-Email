@@ -229,12 +229,18 @@ export default function AdminDashboard({ loaderData }: any) {
 				<div className="bg-white shadow rounded-lg mb-8">
 					<div className="px-4 py-5 sm:p-6">
 						<h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">快捷操作</h3>
-						<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+						<div className="grid grid-cols-1 md:grid-cols-5 gap-4">
 							<a
 								href="/admin/users"
 								className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
 							>
 								用户管理
+							</a>
+							<a
+								href="/admin/mailboxes"
+								className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700"
+							>
+								邮箱管理
 							</a>
 							<a
 								href="/admin/tokens"
@@ -246,7 +252,7 @@ export default function AdminDashboard({ loaderData }: any) {
 								href="/admin/emails"
 								className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
 							>
-								查看邮件列表
+								邮件管理
 							</a>
 							<a
 								href="/admin/settings"

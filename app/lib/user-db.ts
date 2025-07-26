@@ -93,6 +93,57 @@ export async function updateUserLastLogin(
     .where(eq(users.id, userId));
 }
 
+// 检查用户邮箱配额
+export async function checkUserQuota(
+  db: DrizzleD1Database,
+  userId: string
+): Promise<{
+  current: number;
+  limit: number;
+  remaining: number;
+  hasQuota: boolean;
+}> {
+  // 获取用户信息
+  const user = await getUserById(db, userId);
+  if (!user) {
+    throw new Error("用户不存在");
+  }
+
+  // 获取用户当前邮箱数量
+  const currentMailboxes = await db.query.userMailboxes.findMany({
+    where: (userMailboxes, { eq }) => eq(userMailboxes.userId, userId),
+  });
+
+  const current = currentMailboxes.length;
+  const limit = user.emailQuota;
+  const remaining = Math.max(0, limit - current);
+  const hasQuota = remaining > 0;
+
+  return {
+    current,
+    limit,
+    remaining,
+    hasQuota,
+  };
+}
+
+// 更新用户信息
+export async function updateUser(
+  db: DrizzleD1Database,
+  userId: string,
+  updates: {
+    emailQuota?: number;
+    isActive?: boolean;
+    expiresAt?: Date | null;
+    notes?: string;
+  }
+): Promise<void> {
+  await db
+    .update(users)
+    .set(updates)
+    .where(eq(users.id, userId));
+}
+
 // 邮箱分配和管理
 export async function createUserMailbox(
   db: DrizzleD1Database,
@@ -210,40 +261,6 @@ export async function setUserDefaultMailbox(
       eq(userMailboxes.userId, userId),
       eq(userMailboxes.mailboxId, mailboxId)
     ));
-}
-
-// 配额管理
-export async function checkUserQuota(
-  db: DrizzleD1Database,
-  userId: string
-): Promise<{
-  hasQuota: boolean;
-  current: number;
-  limit: number;
-  remaining: number;
-}> {
-  const user = await db
-    .select({
-      quotaUsed: users.quotaUsed,
-      emailQuota: users.emailQuota,
-    })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-
-  if (user.length === 0) {
-    throw new Error("User not found");
-  }
-
-  const { quotaUsed, emailQuota } = user[0];
-  const remaining = emailQuota - quotaUsed;
-  
-  return {
-    hasQuota: remaining > 0,
-    current: quotaUsed,
-    limit: emailQuota,
-    remaining,
-  };
 }
 
 export async function updateUserQuota(
