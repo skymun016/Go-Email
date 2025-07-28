@@ -111,6 +111,53 @@ export default function TestMailboxesDB() {
   // 延长时间按钮状态管理
   const [extendingTime, setExtendingTime] = useState<Record<number, boolean>>({});
 
+  // 响应式样式
+  const mobileStyles = `
+    @media (max-width: 768px) {
+      .table-container {
+        font-size: 12px !important;
+      }
+      .table-container th {
+        padding: 8px 4px !important;
+        font-size: 11px !important;
+      }
+      .table-container td {
+        padding: 8px 4px !important;
+        font-size: 11px !important;
+      }
+      .email-cell {
+        font-size: 10px !important;
+      }
+      .action-buttons {
+        flex-direction: column !important;
+        gap: 2px !important;
+      }
+      .action-button {
+        padding: 4px 6px !important;
+        font-size: 10px !important;
+        min-width: 50px !important;
+      }
+      .remark-input {
+        max-width: 80px !important;
+        font-size: 10px !important;
+      }
+      .stats-container {
+        font-size: 18px !important;
+        padding: 15px !important;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .table-container {
+        font-size: 10px !important;
+      }
+      .stats-container {
+        font-size: 16px !important;
+        padding: 12px !important;
+      }
+    }
+  `;
+
   // 在客户端获取当前域名
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -250,6 +297,9 @@ export default function TestMailboxesDB() {
   
   return (
     <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
+      {/* 响应式样式 */}
+      <style dangerouslySetInnerHTML={{ __html: mobileStyles }} />
+
       {/* 通知消息 */}
       {notification && (
         <div style={{
@@ -280,7 +330,7 @@ export default function TestMailboxesDB() {
         marginBottom: '15px'
       }}>
         {/* 居中的总邮箱数 - 一行显示 */}
-        <div style={{
+        <div className="stats-container" style={{
           padding: '20px',
           backgroundColor: '#f8f9fa',
           borderRadius: '12px',
@@ -313,16 +363,63 @@ export default function TestMailboxesDB() {
       }}>
 
 
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <div className="table-container" style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
             <thead>
               <tr style={{ backgroundColor: '#f8f9fa' }}>
-                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e9ecef' }}>ID</th>
-                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e9ecef' }}>邮箱地址</th>
-                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e9ecef' }}>复制次数</th>
-                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e9ecef' }}>过期时间</th>
-                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e9ecef' }}>备注</th>
-                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e9ecef' }}>操作</th>
+                <th style={{
+                  padding: '12px',
+                  textAlign: 'center',
+                  borderBottom: '1px solid #e9ecef',
+                  borderRight: '1px solid #e9ecef',
+                  width: '60px',
+                  fontSize: '14px',
+                  fontWeight: '600'
+                }}>ID</th>
+                <th style={{
+                  padding: '12px',
+                  textAlign: 'center',
+                  borderBottom: '1px solid #e9ecef',
+                  borderRight: '1px solid #e9ecef',
+                  maxWidth: '200px',
+                  fontSize: '14px',
+                  fontWeight: '600'
+                }}>邮箱地址</th>
+                <th style={{
+                  padding: '12px',
+                  textAlign: 'center',
+                  borderBottom: '1px solid #e9ecef',
+                  borderRight: '1px solid #e9ecef',
+                  width: '80px',
+                  fontSize: '14px',
+                  fontWeight: '600'
+                }}>复制次数</th>
+                <th style={{
+                  padding: '12px',
+                  textAlign: 'center',
+                  borderBottom: '1px solid #e9ecef',
+                  borderRight: '1px solid #e9ecef',
+                  width: '120px',
+                  fontSize: '14px',
+                  fontWeight: '600'
+                }}>过期时间</th>
+                <th style={{
+                  padding: '12px',
+                  textAlign: 'center',
+                  borderBottom: '1px solid #e9ecef',
+                  borderRight: '1px solid #e9ecef',
+                  width: '150px',
+                  fontSize: '14px',
+                  fontWeight: '600'
+                }}>备注</th>
+                <th style={{
+                  padding: '12px',
+                  textAlign: 'center',
+                  borderBottom: '1px solid #e9ecef',
+                  width: '200px',
+                  fontSize: '14px',
+                  fontWeight: '600'
+                }}>操作</th>
               </tr>
             </thead>
             <tbody>
@@ -341,27 +438,55 @@ export default function TestMailboxesDB() {
 
                 return (
                   <tr key={mailbox.id} style={{ borderBottom: '1px solid #f8f9fa' }}>
-                    <td style={{ padding: '12px' }}>{mailbox.id}</td>
-                    <td style={{ padding: '12px' }}>
-                      <div style={{ fontFamily: 'monospace', fontSize: '14px' }}>
+                    <td style={{
+                      padding: '12px',
+                      textAlign: 'center',
+                      borderRight: '1px solid #e9ecef',
+                      fontSize: '14px',
+                      fontWeight: '500'
+                    }}>{mailbox.id}</td>
+                    <td style={{
+                      padding: '12px',
+                      borderRight: '1px solid #e9ecef',
+                      maxWidth: '200px'
+                    }}>
+                      <div className="email-cell" style={{
+                        fontFamily: 'monospace',
+                        fontSize: '13px',
+                        wordBreak: 'break-all',
+                        lineHeight: '1.4'
+                      }}>
                         {mailbox.email}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#6c757d' }}>
+                      <div style={{
+                        fontSize: '11px',
+                        color: '#6c757d',
+                        marginTop: '2px'
+                      }}>
                         {mailbox.prefix}@{mailbox.domain}
                       </div>
                     </td>
-                    <td style={{ padding: '12px' }}>
+                    <td style={{
+                      padding: '12px',
+                      textAlign: 'center',
+                      borderRight: '1px solid #e9ecef'
+                    }}>
                       <span style={{
                         backgroundColor: '#f8d7da',
                         color: '#721c24',
                         padding: '2px 6px',
                         borderRadius: '4px',
-                        fontSize: '12px'
+                        fontSize: '12px',
+                        fontWeight: '500'
                       }}>
                         {mailbox.copyCount}次
                       </span>
                     </td>
-                    <td style={{ padding: '12px' }}>
+                    <td style={{
+                      padding: '12px',
+                      textAlign: 'center',
+                      borderRight: '1px solid #e9ecef'
+                    }}>
                       {expiresAt ? (
                         <div>
                           <div style={{ fontSize: '12px', color: isExpired ? '#dc3545' : '#495057' }}>
@@ -379,10 +504,16 @@ export default function TestMailboxesDB() {
                         <span style={{ fontSize: '12px', color: '#6c757d' }}>未设置</span>
                       )}
                     </td>
-                    <td style={{ padding: '12px' }}>
+                    <td style={{
+                      padding: '12px',
+                      textAlign: 'center',
+                      borderRight: '1px solid #e9ecef',
+                      maxWidth: '150px'
+                    }}>
                       {editingRemark[mailbox.id] ? (
-                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'center' }}>
                           <input
+                            className="remark-input"
                             type="text"
                             value={remarkValues[mailbox.id] || ''}
                             onChange={(e) => setRemarkValues(prev => ({ ...prev, [mailbox.id]: e.target.value }))}
@@ -401,13 +532,14 @@ export default function TestMailboxesDB() {
                               fontSize: '12px',
                               border: '1px solid #ddd',
                               borderRadius: '4px',
-                              minWidth: '120px',
+                              width: '100%',
+                              maxWidth: '130px',
                               backgroundColor: remarkLoading[mailbox.id] ? '#f8f9fa' : 'white'
                             }}
                             placeholder="输入备注..."
                           />
                           {remarkLoading[mailbox.id] && (
-                            <span style={{ fontSize: '12px', color: '#6c757d' }}>保存中...</span>
+                            <span style={{ fontSize: '11px', color: '#6c757d' }}>保存中...</span>
                           )}
                         </div>
                       ) : (
@@ -421,7 +553,9 @@ export default function TestMailboxesDB() {
                             borderRadius: '4px',
                             backgroundColor: 'transparent',
                             border: '1px solid transparent',
-                            color: mailbox.remark ? '#495057' : '#6c757d'
+                            color: mailbox.remark ? '#495057' : '#6c757d',
+                            wordBreak: 'break-all',
+                            lineHeight: '1.3'
                           }}
                           onMouseEnter={(e) => {
                             e.currentTarget.style.backgroundColor = '#f8f9fa';
@@ -436,47 +570,65 @@ export default function TestMailboxesDB() {
                         </div>
                       )}
                     </td>
-                    <td style={{ padding: '12px' }}>
-                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <td style={{
+                      padding: '12px',
+                      textAlign: 'center'
+                    }}>
+                      <div className="action-buttons" style={{
+                        display: 'flex',
+                        gap: '4px',
+                        flexWrap: 'wrap',
+                        justifyContent: 'center',
+                        alignItems: 'center'
+                      }}>
                         <button
+                          className="action-button"
                           onClick={() => copyToClipboard(mailbox.email, emailKey)}
                           style={{
-                            padding: '4px 8px',
-                            fontSize: '12px',
+                            padding: '6px 10px',
+                            fontSize: '11px',
                             border: '1px solid #007bff',
                             backgroundColor: copiedItems[emailKey] ? '#28a745' : '#007bff',
                             color: 'white',
                             borderRadius: '4px',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            minWidth: '60px',
+                            whiteSpace: 'nowrap'
                           }}
                         >
                           {copiedItems[emailKey] ? '✓ 已复制' : '复制邮箱'}
                         </button>
                         <button
+                          className="action-button"
                           onClick={() => copyToClipboard(verifyLink, linkKey)}
                           style={{
-                            padding: '4px 8px',
-                            fontSize: '12px',
+                            padding: '6px 10px',
+                            fontSize: '11px',
                             border: '1px solid #17a2b8',
                             backgroundColor: copiedItems[linkKey] ? '#28a745' : '#17a2b8',
                             color: 'white',
                             borderRadius: '4px',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            minWidth: '60px',
+                            whiteSpace: 'nowrap'
                           }}
                         >
                           {copiedItems[linkKey] ? '✓ 已复制' : '复制链接'}
                         </button>
                         <button
+                          className="action-button"
                           onClick={() => extendTime(mailbox.id)}
                           disabled={extendingTime[mailbox.id]}
                           style={{
-                            padding: '4px 8px',
-                            fontSize: '12px',
+                            padding: '6px 10px',
+                            fontSize: '11px',
                             border: '1px solid #ffc107',
                             backgroundColor: extendingTime[mailbox.id] ? '#6c757d' : '#ffc107',
                             color: 'white',
                             borderRadius: '4px',
-                            cursor: extendingTime[mailbox.id] ? 'not-allowed' : 'pointer'
+                            cursor: extendingTime[mailbox.id] ? 'not-allowed' : 'pointer',
+                            minWidth: '60px',
+                            whiteSpace: 'nowrap'
                           }}
                         >
                           {extendingTime[mailbox.id] ? '处理中...' : '延长时间'}
