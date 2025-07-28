@@ -1,17 +1,19 @@
 import { useState, useEffect } from "react";
-import { Form, useActionData, useNavigation, useLoaderData, useSearchParams, data } from "react-router";
+import { Form, useActionData, useNavigation, useLoaderData, data, useFetcher } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { createDB } from "~/lib/db";
+import { createDB, markEmailAsRead } from "~/lib/db";
 import { getDatabase } from "~/config/app";
 import { verifyAndGetEmails, getMailboxStats } from "~/lib/mailbox-verification";
-import { MailItem } from "~/components/mail-item";
+import { EnhancedMailItem } from "~/components/enhanced-mail-item";
 import { Button } from "~/components/ui/button";
 import { APP_CONFIG } from "~/config/app";
+import { Copy, Check } from "lucide-react";
 
 // 类型定义
 interface ActionData {
   success: boolean;
   error?: string;
+  message?: string;
   data?: {
     mailbox: {
       id: string;
@@ -79,6 +81,27 @@ export async function action({ request, context }: ActionFunctionArgs) {
 
   try {
     const formData = await request.formData();
+    const action = formData.get("action") as string;
+
+    // 处理标记邮件为已读的请求
+    if (action === "markEmailAsRead") {
+      const emailId = formData.get("emailId") as string;
+
+      if (!emailId) {
+        return data<ActionData>({
+          success: false,
+          error: "邮件ID是必需的"
+        });
+      }
+
+      await markEmailAsRead(db, emailId, true);
+      return data<ActionData>({
+        success: true,
+        message: "邮件已标记为已读"
+      });
+    }
+
+    // 处理邮箱验证请求
     const email = formData.get("email") as string;
     const verificationCode = formData.get("verificationCode") as string;
 
@@ -116,11 +139,13 @@ export default function VerifyMailbox() {
   const actionData = useActionData<ActionData>();
   const loaderData = useLoaderData<typeof loader>();
   const navigation = useNavigation();
-  const [searchParams] = useSearchParams();
+  const fetcher = useFetcher();
 
   // 状态管理
   const [email, setEmail] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
+  const [emailCopied, setEmailCopied] = useState(false);
+  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
   const isSubmitting = navigation.state === "submitting";
 
@@ -136,6 +161,41 @@ export default function VerifyMailbox() {
     }
   }, [hasUrlParams, loaderData.urlParams]);
 
+  // 复制邮箱地址到剪贴板
+  const copyEmailAddress = async (emailAddress: string) => {
+    try {
+      await navigator.clipboard.writeText(emailAddress);
+      setEmailCopied(true);
+      setNotification({
+        type: 'success',
+        message: '邮箱地址已复制到剪贴板'
+      });
+      setTimeout(() => {
+        setEmailCopied(false);
+        setNotification(null);
+      }, 2000);
+    } catch (error) {
+      console.error('复制失败:', error);
+      setNotification({
+        type: 'error',
+        message: '复制失败，请手动复制'
+      });
+      setTimeout(() => setNotification(null), 3000);
+    }
+  };
+
+  // 标记邮件为已读
+  const markEmailAsReadHandler = async (emailId: string) => {
+    try {
+      fetcher.submit(
+        { action: "markEmailAsRead", emailId },
+        { method: "post" }
+      );
+    } catch (error) {
+      console.error('标记邮件已读失败:', error);
+    }
+  };
+
   // 决定显示内容的逻辑
   const shouldShowForm = !hasUrlParams || (hasUrlParams && !autoVerifyResult?.success);
   const shouldShowAutoResult = hasUrlParams && autoVerifyResult;
@@ -143,6 +203,22 @@ export default function VerifyMailbox() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="container mx-auto px-4 py-8">
+        {/* 通知消息 */}
+        {notification && (
+          <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${
+            notification.type === 'success'
+              ? 'bg-green-100 border border-green-200 text-green-800'
+              : 'bg-red-100 border border-red-200 text-red-800'
+          }`}>
+            <div className="flex items-center">
+              <span className="mr-2">
+                {notification.type === 'success' ? '✅' : '❌'}
+              </span>
+              {notification.message}
+            </div>
+          </div>
+        )}
+
         {/* 页面标题 */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
@@ -235,9 +311,28 @@ export default function VerifyMailbox() {
                       📮 邮箱信息
                     </h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      <div>
+                      <div className="col-span-full">
                         <span className="font-medium text-gray-700">邮箱地址：</span>
-                        <span className="text-blue-600 font-mono">{displayData.mailbox.email}</span>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-blue-600 font-mono text-base">{displayData.mailbox.email}</span>
+                          <button
+                            onClick={() => copyEmailAddress(displayData.mailbox.email)}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-600 rounded transition-colors"
+                            title="复制邮箱地址"
+                          >
+                            {emailCopied ? (
+                              <>
+                                <Check className="w-3 h-3" />
+                                已复制
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3 h-3" />
+                                复制
+                              </>
+                            )}
+                          </button>
+                        </div>
                       </div>
                       <div>
                         <span className="font-medium text-gray-700">邮箱类型：</span>
@@ -305,7 +400,7 @@ export default function VerifyMailbox() {
                     ) : (
                       <div className="divide-y divide-gray-200">
                         {displayData.emails.map((email, index) => (
-                          <MailItem
+                          <EnhancedMailItem
                             key={email.id}
                             id={email.id}
                             index={index + 1}
@@ -316,6 +411,7 @@ export default function VerifyMailbox() {
                             isRead={email.isRead}
                             textContent={(email as any).textContent || undefined}
                             htmlContent={(email as any).htmlContent || undefined}
+                            onMarkAsRead={markEmailAsReadHandler}
                           />
                         ))}
                       </div>
