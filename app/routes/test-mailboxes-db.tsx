@@ -8,7 +8,7 @@ import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 import { createDB } from "~/lib/db";
 import { getDatabase } from "~/config/app";
 import { testMailboxes, mailboxes } from "~/db/schema";
-import { asc, count, eq } from "drizzle-orm";
+import { asc, count, eq, like, sql } from "drizzle-orm";
 
 // 处理延长时间的action
 export async function action({ context, request }: ActionFunctionArgs) {
@@ -21,9 +21,6 @@ export async function action({ context, request }: ActionFunctionArgs) {
     const mailboxId = formData.get('mailboxId');
 
     if (action === 'extend' && mailboxId) {
-      // 延长7天
-      const newExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
       // 首先获取测试邮箱信息
       const testMailbox = await db
         .select()
@@ -34,6 +31,12 @@ export async function action({ context, request }: ActionFunctionArgs) {
       if (testMailbox.length === 0) {
         return { success: false, message: '测试邮箱不存在' };
       }
+
+      // 从当前过期时间延长7天（修复逻辑）
+      const currentExpiresAt = new Date(testMailbox[0].expiresAt);
+      const newExpiresAt = new Date(currentExpiresAt.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+      console.log(`📅 延长时间逻辑：从 ${currentExpiresAt.toISOString()} 延长到 ${newExpiresAt.toISOString()}`);
 
       // 更新测试邮箱表的过期时间
       await db
@@ -70,30 +73,54 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
     const env = context.cloudflare.env;
     const db = createDB(getDatabase(env));
 
-    // 获取分页参数
+    // 获取分页和搜索参数
     const url = new URL(request.url);
     const page = parseInt(url.searchParams.get('page') || '1');
     const itemsPerPage = parseInt(url.searchParams.get('limit') || '50');
+    const searchQuery = url.searchParams.get('search')?.trim() || '';
     const offset = (page - 1) * itemsPerPage;
 
-    console.log(`开始加载测试邮箱数据... 页码: ${page}, 每页: ${itemsPerPage}`);
+    console.log(`开始加载测试邮箱数据... 页码: ${page}, 每页: ${itemsPerPage}, 搜索: "${searchQuery}"`);
 
-    // 第一步：获取分页的测试邮箱（升序排序）
-    const mailboxes = await db
-      .select()
-      .from(testMailboxes)
-      .orderBy(asc(testMailboxes.id))
-      .limit(itemsPerPage)
-      .offset(offset);
+    // 第一步：获取分页的测试邮箱（升序排序，支持搜索）
+    let mailboxes;
+    if (searchQuery.length >= 2) {
+      // 有搜索条件
+      mailboxes = await db
+        .select()
+        .from(testMailboxes)
+        .where(sql`LOWER(${testMailboxes.email}) LIKE LOWER(${`%${searchQuery}%`})`)
+        .orderBy(asc(testMailboxes.id))
+        .limit(itemsPerPage)
+        .offset(offset);
+    } else {
+      // 无搜索条件
+      mailboxes = await db
+        .select()
+        .from(testMailboxes)
+        .orderBy(asc(testMailboxes.id))
+        .limit(itemsPerPage)
+        .offset(offset);
+    }
 
     console.log(`成功获取 ${mailboxes.length} 个邮箱`);
 
-    // 第二步：获取总数（简单的count查询）
+    // 第二步：获取总数（支持搜索条件）
     let totalCount = 0;
     try {
-      const totalCountResult = await db.select({ count: count() }).from(testMailboxes);
-      totalCount = totalCountResult[0]?.count || 0;
-      console.log(`总数查询成功: ${totalCount}`);
+      if (searchQuery.length >= 2) {
+        // 有搜索条件的总数查询
+        const totalCountResult = await db
+          .select({ count: count() })
+          .from(testMailboxes)
+          .where(sql`LOWER(${testMailboxes.email}) LIKE LOWER(${`%${searchQuery}%`})`);
+        totalCount = totalCountResult[0]?.count || 0;
+      } else {
+        // 无搜索条件的总数查询
+        const totalCountResult = await db.select({ count: count() }).from(testMailboxes);
+        totalCount = totalCountResult[0]?.count || 0;
+      }
+      console.log(`总数查询成功: ${totalCount} (搜索: "${searchQuery}")`);
     } catch (countError) {
       console.error("总数查询失败:", countError);
       // 如果count查询失败，使用邮箱数组长度作为备选
@@ -111,7 +138,9 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
       itemsPerPage,
       totalPages,
       hasNextPage: page < totalPages,
-      hasPrevPage: page > 1
+      hasPrevPage: page > 1,
+      searchQuery,
+      isSearching: searchQuery.length >= 2
     };
 
   } catch (error) {
@@ -121,17 +150,61 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
 }
 
 export default function TestMailboxesDB() {
-  const { mailboxes, totalCount, currentPage, itemsPerPage, totalPages, hasNextPage, hasPrevPage } = useLoaderData<typeof loader>();
+  const { mailboxes, totalCount, currentPage, itemsPerPage, totalPages, hasNextPage, hasPrevPage, searchQuery, isSearching } = useLoaderData<typeof loader>();
   const fetcher = useFetcher();
   const [copiedItems, setCopiedItems] = useState<Record<string, boolean>>({});
   const [currentHost, setCurrentHost] = useState<string>('');
   const [searchParams, setSearchParams] = useSearchParams();
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [searchInput, setSearchInput] = useState(searchQuery || '');
+  const [isSearchLoading, setIsSearchLoading] = useState(false);
 
   // 备注编辑状态管理
   const [editingRemark, setEditingRemark] = useState<Record<number, boolean>>({});
   const [remarkValues, setRemarkValues] = useState<Record<number, string>>({});
   const [remarkLoading, setRemarkLoading] = useState<Record<number, boolean>>({});
+
+  // 搜索处理函数
+  const handleSearch = (query: string) => {
+    setIsSearchLoading(true);
+    const newSearchParams = new URLSearchParams(searchParams);
+
+    if (query.trim().length >= 2) {
+      newSearchParams.set('search', query.trim());
+      newSearchParams.set('page', '1'); // 搜索时重置到第一页
+    } else {
+      newSearchParams.delete('search');
+      newSearchParams.set('page', '1');
+    }
+
+    setSearchParams(newSearchParams);
+    setIsSearchLoading(false);
+  };
+
+  // 清除搜索
+  const clearSearch = () => {
+    setSearchInput('');
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.delete('search');
+    newSearchParams.set('page', '1');
+    setSearchParams(newSearchParams);
+  };
+
+  // 防抖搜索
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchInput !== searchQuery) {
+        handleSearch(searchInput);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchInput]);
+
+  // 同步搜索输入框
+  useEffect(() => {
+    setSearchInput(searchQuery || '');
+  }, [searchQuery]);
 
   // 延长时间按钮状态管理
   const [extendingTime, setExtendingTime] = useState<Record<number, boolean>>({});
@@ -380,9 +453,115 @@ export default function TestMailboxesDB() {
           </div>
         </div>
 
+        {/* 搜索框 */}
+        <div style={{
+          marginTop: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          flexWrap: 'wrap'
+        }}>
+          <div style={{
+            position: 'relative',
+            flex: '1',
+            minWidth: '300px',
+            maxWidth: '400px'
+          }}>
+            <input
+              type="text"
+              placeholder="搜索邮箱地址..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleSearch(searchInput);
+                }
+                if (e.key === 'Escape') {
+                  clearSearch();
+                }
+              }}
+              style={{
+                width: '100%',
+                padding: '10px 40px 10px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '6px',
+                fontSize: '14px',
+                outline: 'none',
+                transition: 'border-color 0.2s',
+                backgroundColor: 'white'
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = '#007bff';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = '#ddd';
+              }}
+            />
+
+            {/* 搜索图标 */}
+            <div style={{
+              position: 'absolute',
+              right: '12px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}>
+              {searchInput && (
+                <button
+                  onClick={clearSearch}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: '2px',
+                    color: '#6c757d',
+                    fontSize: '16px'
+                  }}
+                  title="清除搜索"
+                >
+                  ×
+                </button>
+              )}
+              <button
+                onClick={() => handleSearch(searchInput)}
+                disabled={isSearchLoading}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: isSearchLoading ? 'not-allowed' : 'pointer',
+                  padding: '2px',
+                  color: '#6c757d'
+                }}
+                title="搜索"
+              >
+                {isSearchLoading ? '⏳' : '🔍'}
+              </button>
+            </div>
+          </div>
+
+          {/* 搜索结果统计 */}
+          {isSearching && (
+            <div style={{
+              fontSize: '14px',
+              color: '#6c757d',
+              padding: '8px 12px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '4px',
+              border: '1px solid #e9ecef'
+            }}>
+              {totalCount > 0 ? (
+                <>搜索 "<strong>{searchQuery}</strong>" 找到 <strong>{totalCount}</strong> 个结果</>
+              ) : (
+                <>未找到匹配 "<strong>{searchQuery}</strong>" 的邮箱地址</>
+              )}
+            </div>
+          )}
+        </div>
 
       </div>
-      
+
       {/* 邮箱列表 */}
       <div style={{ 
         backgroundColor: 'white', 
@@ -699,7 +878,7 @@ export default function TestMailboxesDB() {
               </button>
 
               <span style={{ color: '#495057', fontSize: '14px' }}>
-                第 {currentPage} 页 / 共 {totalPages} 页
+                第 {currentPage} 页 / 共 {totalPages} 页{isSearching ? '（搜索结果）' : ''}
               </span>
 
               <button
@@ -720,13 +899,30 @@ export default function TestMailboxesDB() {
             </div>
 
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              {isSearching && (
+                <button
+                  onClick={clearSearch}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    border: '1px solid #6c757d',
+                    backgroundColor: 'white',
+                    color: '#6c757d',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                  title="清除搜索，返回全部数据"
+                >
+                  清除搜索
+                </button>
+              )}
               <span style={{ color: '#6c757d', fontSize: '14px' }}>跳转到:</span>
               <input
                 type="number"
                 min="1"
                 max={totalPages}
                 placeholder={currentPage.toString()}
-                onKeyPress={(e) => {
+                onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     const page = parseInt((e.target as HTMLInputElement).value);
                     if (page >= 1 && page <= totalPages) {
