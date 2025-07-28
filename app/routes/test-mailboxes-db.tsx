@@ -138,8 +138,12 @@ export default function TestMailboxesDB() {
         min-width: 50px !important;
       }
       .remark-input {
-        max-width: 80px !important;
+        max-width: 70px !important;
         font-size: 10px !important;
+      }
+      .email-cell {
+        font-size: 10px !important;
+        word-break: break-all !important;
       }
       .stats-container {
         font-size: 18px !important;
@@ -364,7 +368,7 @@ export default function TestMailboxesDB() {
 
 
         <div className="table-container" style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '900px' }}>
             <thead>
               <tr style={{ backgroundColor: '#f8f9fa' }}>
                 <th style={{
@@ -372,7 +376,7 @@ export default function TestMailboxesDB() {
                   textAlign: 'center',
                   borderBottom: '1px solid #e9ecef',
                   borderRight: '1px solid #e9ecef',
-                  width: '60px',
+                  width: '8%',
                   fontSize: '14px',
                   fontWeight: '600'
                 }}>ID</th>
@@ -381,7 +385,7 @@ export default function TestMailboxesDB() {
                   textAlign: 'center',
                   borderBottom: '1px solid #e9ecef',
                   borderRight: '1px solid #e9ecef',
-                  maxWidth: '200px',
+                  width: '25%',
                   fontSize: '14px',
                   fontWeight: '600'
                 }}>邮箱地址</th>
@@ -390,7 +394,7 @@ export default function TestMailboxesDB() {
                   textAlign: 'center',
                   borderBottom: '1px solid #e9ecef',
                   borderRight: '1px solid #e9ecef',
-                  width: '80px',
+                  width: '12%',
                   fontSize: '14px',
                   fontWeight: '600'
                 }}>复制次数</th>
@@ -399,7 +403,7 @@ export default function TestMailboxesDB() {
                   textAlign: 'center',
                   borderBottom: '1px solid #e9ecef',
                   borderRight: '1px solid #e9ecef',
-                  width: '120px',
+                  width: '15%',
                   fontSize: '14px',
                   fontWeight: '600'
                 }}>过期时间</th>
@@ -408,7 +412,7 @@ export default function TestMailboxesDB() {
                   textAlign: 'center',
                   borderBottom: '1px solid #e9ecef',
                   borderRight: '1px solid #e9ecef',
-                  width: '150px',
+                  width: '15%',
                   fontSize: '14px',
                   fontWeight: '600'
                 }}>备注</th>
@@ -416,7 +420,7 @@ export default function TestMailboxesDB() {
                   padding: '12px',
                   textAlign: 'center',
                   borderBottom: '1px solid #e9ecef',
-                  width: '200px',
+                  width: '25%',
                   fontSize: '14px',
                   fontWeight: '600'
                 }}>操作</th>
@@ -447,37 +451,35 @@ export default function TestMailboxesDB() {
                     }}>{mailbox.id}</td>
                     <td style={{
                       padding: '12px',
+                      textAlign: 'center',
                       borderRight: '1px solid #e9ecef',
-                      maxWidth: '200px'
+                      width: '25%'
                     }}>
                       <div className="email-cell" style={{
                         fontFamily: 'monospace',
                         fontSize: '13px',
                         wordBreak: 'break-all',
-                        lineHeight: '1.4'
+                        lineHeight: '1.4',
+                        color: '#495057'
                       }}>
                         {mailbox.email}
-                      </div>
-                      <div style={{
-                        fontSize: '11px',
-                        color: '#6c757d',
-                        marginTop: '2px'
-                      }}>
-                        {mailbox.prefix}@{mailbox.domain}
                       </div>
                     </td>
                     <td style={{
                       padding: '12px',
                       textAlign: 'center',
-                      borderRight: '1px solid #e9ecef'
+                      borderRight: '1px solid #e9ecef',
+                      width: '12%'
                     }}>
                       <span style={{
-                        backgroundColor: '#f8d7da',
-                        color: '#721c24',
-                        padding: '2px 6px',
-                        borderRadius: '4px',
+                        backgroundColor: '#e3f2fd',
+                        color: '#1565c0',
+                        padding: '4px 8px',
+                        borderRadius: '12px',
                         fontSize: '12px',
-                        fontWeight: '500'
+                        fontWeight: '600',
+                        display: 'inline-block',
+                        minWidth: '35px'
                       }}>
                         {mailbox.copyCount}次
                       </span>
@@ -485,7 +487,8 @@ export default function TestMailboxesDB() {
                     <td style={{
                       padding: '12px',
                       textAlign: 'center',
-                      borderRight: '1px solid #e9ecef'
+                      borderRight: '1px solid #e9ecef',
+                      width: '15%'
                     }}>
                       {expiresAt ? (
                         <div>
@@ -508,7 +511,7 @@ export default function TestMailboxesDB() {
                       padding: '12px',
                       textAlign: 'center',
                       borderRight: '1px solid #e9ecef',
-                      maxWidth: '150px'
+                      width: '15%'
                     }}>
                       {editingRemark[mailbox.id] ? (
                         <div style={{ display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'center' }}>
@@ -533,7 +536,7 @@ export default function TestMailboxesDB() {
                               border: '1px solid #ddd',
                               borderRadius: '4px',
                               width: '100%',
-                              maxWidth: '130px',
+                              maxWidth: '120px',
                               backgroundColor: remarkLoading[mailbox.id] ? '#f8f9fa' : 'white'
                             }}
                             placeholder="输入备注..."
@@ -572,7 +575,8 @@ export default function TestMailboxesDB() {
                     </td>
                     <td style={{
                       padding: '12px',
-                      textAlign: 'center'
+                      textAlign: 'center',
+                      width: '25%'
                     }}>
                       <div className="action-buttons" style={{
                         display: 'flex',
