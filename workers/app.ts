@@ -118,20 +118,28 @@ export default {
 
 			// 验证域名是否支持
 			const toDomain = message.to.split('@')[1];
+			const toPrefix = message.to.split('@')[0];
 			const supportedDomains = APP_CONFIG.cloudflare.email.supportedDomains;
 
+			console.log(`📧 处理邮件: ${toPrefix}@${toDomain} (前缀: ${toPrefix}, 域名: ${toDomain})`);
+
 			if (!supportedDomains.includes(toDomain as any)) {
-				console.log(`❌ 不支持的域名: ${toDomain}`);
+				console.log(`❌ 不支持的域名: ${toDomain}, 支持的域名: ${supportedDomains.join(', ')}`);
 				return;
 			}
 
-			console.log(`✅ 域名验证通过: ${toDomain}`);
+			console.log(`✅ 域名验证通过: ${toDomain}, 开始处理自定义前缀邮箱: ${toPrefix}@${toDomain}`);
 
 			// 创建数据库实例
 			const db = createDB(getDatabase(env));
 
-			// 清理过期邮件（异步执行，不阻塞当前邮件处理）
-			ctx.waitUntil(cleanupExpiredEmails(db));
+			// 根据配置决定是否启用自动清理
+			if (APP_CONFIG.email.enableAutoCleanup) {
+				// 清理过期邮件（异步执行，不阻塞当前邮件处理）
+				ctx.waitUntil(cleanupExpiredEmails(db));
+			}
+			// 如果禁用自动清理，过期邮箱的历史数据将被保留
+			// 用户可以通过验证码继续访问过期邮箱的历史邮件
 
 			// 读取原始邮件内容
 			const rawEmailArray = await new Response(message.raw).arrayBuffer();
@@ -149,8 +157,15 @@ export default {
 			// 获取或创建邮箱记录（使用统一的drizzle方法）
 			const mailbox = await getOrCreateMailbox(db, message.to);
 
+			// 检查邮箱是否过期，过期邮箱不接收新邮件
+			const now = new Date();
+			if (mailbox.expiresAt <= now) {
+				console.log(`❌ 邮箱已过期，拒绝接收新邮件: ${mailbox.email} (过期时间: ${mailbox.expiresAt.toISOString()})`);
+				return; // 直接返回，不处理邮件
+			}
+
 			console.log(
-				`📦 Found/Created mailbox: ${mailbox.id} for ${mailbox.email}`,
+				`📦 邮箱处理完成: ${mailbox.id} for ${mailbox.email} (类型: ${mailbox.ownerType}, 过期时间: ${mailbox.expiresAt.toISOString()})`,
 			);
 
 			// 存储邮件到数据库，附件存储到 R2

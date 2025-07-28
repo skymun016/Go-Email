@@ -28,11 +28,20 @@ export default function Layout({ loaderData }: Route.ComponentProps) {
 	const location = useLocation();
 	const { env, user } = loaderData;
 
+	// 定义需要隐藏导航栏和底部栏的页面路径（首页实现完全全屏效果）
+	const hideNavigationPaths = ['/'];
+	const shouldHideNavigation = hideNavigationPaths.includes(location.pathname);
+	const shouldHideFooter = hideNavigationPaths.includes(location.pathname);
+
 	return (
 		<>
-			<Navigation currentPath={location.pathname} user={user} />
+			{!shouldHideNavigation && (
+				<Navigation currentPath={location.pathname} user={user} />
+			)}
 			<Outlet />
-			<Footer env={env} />
+			{!shouldHideFooter && (
+				<Footer env={env} />
+			)}
 		</>
 	);
 }

@@ -57,6 +57,52 @@ export function createDB(database?: D1Database) {
 	}
 }
 
+// 验证邮箱前缀是否有效
+function validateEmailPrefix(email: string): { isValid: boolean; error?: string } {
+	const [prefix, domain] = email.split('@');
+
+	// 检查前缀长度
+	if (prefix.length < 1) {
+		return { isValid: false, error: "邮箱前缀不能为空" };
+	}
+
+	if (prefix.length > 64) {
+		return { isValid: false, error: "邮箱前缀长度不能超过64个字符" };
+	}
+
+	// 检查前缀字符（允许字母、数字、点、连字符、下划线）
+	const prefixRegex = /^[a-zA-Z0-9._-]+$/;
+	if (!prefixRegex.test(prefix)) {
+		return { isValid: false, error: "邮箱前缀只能包含字母、数字、点、连字符和下划线" };
+	}
+
+	// 检查前缀不能以点开头或结尾
+	if (prefix.startsWith('.') || prefix.endsWith('.')) {
+		return { isValid: false, error: "邮箱前缀不能以点开头或结尾" };
+	}
+
+	// 检查不能有连续的点
+	if (prefix.includes('..')) {
+		return { isValid: false, error: "邮箱前缀不能包含连续的点" };
+	}
+
+	// 检查是否为保留前缀
+	const reservedPrefixes = [
+		'admin', 'administrator', 'root', 'system', 'postmaster',
+		'webmaster', 'hostmaster', 'abuse', 'noreply', 'no-reply',
+		'support', 'help', 'info', 'contact', 'sales', 'marketing',
+		'security', 'privacy', 'legal', 'billing', 'accounts',
+		'api', 'www', 'mail', 'email', 'smtp', 'pop', 'imap',
+		'ftp', 'ssh', 'test', 'demo', 'example', 'sample'
+	];
+
+	if (reservedPrefixes.includes(prefix.toLowerCase())) {
+		return { isValid: false, error: `邮箱前缀 "${prefix}" 为系统保留，请使用其他前缀` };
+	}
+
+	return { isValid: true };
+}
+
 // 通过邮箱地址获取或创建邮箱（增强错误处理，支持用户所有权）
 export async function getOrCreateMailbox(
 	db: ReturnType<typeof createDB>,
@@ -72,6 +118,13 @@ export async function getOrCreateMailbox(
 	const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 	if (!emailRegex.test(email)) {
 		throw new Error(`Invalid email format: ${email}`);
+	}
+
+	// 增强的邮箱前缀验证
+	const prefixValidation = validateEmailPrefix(email);
+	if (!prefixValidation.isValid) {
+		console.log(`❌ 邮箱前缀验证失败: ${email} - ${prefixValidation.error}`);
+		throw new Error(`Invalid email prefix: ${prefixValidation.error}`);
 	}
 
 	const now = new Date();
@@ -92,7 +145,7 @@ export async function getOrCreateMailbox(
 		// 创建新邮箱（根据所有者类型设置过期时间）
 		const expiresAt = ownerType === "user"
 			? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // 用户邮箱1年过期
-			: new Date(Date.now() + APP_CONFIG.email.expirationHours * 60 * 60 * 1000); // 匿名邮箱24小时过期
+			: new Date(Date.now() + APP_CONFIG.email.expirationHours * 60 * 60 * 1000); // 匿名邮箱7天过期
 
 		const newMailbox: NewMailbox = {
 			id: nanoid(),

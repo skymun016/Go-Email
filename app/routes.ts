@@ -6,6 +6,9 @@ import {
 } from "@react-router/dev/routes";
 
 export default [
+	// 独立页面路由（不使用布局）
+	route("/verify-mailbox", "routes/verify-mailbox.tsx"),
+
 	layout("routes/layout.tsx", [
 		index("routes/home.tsx"),
 
