@@ -1,6 +1,32 @@
 import { relations } from "drizzle-orm";
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
+// 测试邮箱表 - 存储预生成的测试邮箱数据
+export const testMailboxes = sqliteTable(
+	"test_mailboxes",
+	{
+		id: integer("id").primaryKey({ autoIncrement: true }),
+		email: text("email").notNull().unique(),
+		verificationCode: text("verification_code").notNull(),
+		domain: text("domain").notNull(),
+		prefix: text("prefix").notNull(),
+		directLink: text("direct_link").notNull(),
+		copyCount: integer("copy_count").notNull().default(0),
+		remark: text("remark"), // 备注字段，允许NULL
+		createdAt: integer("created_at", { mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+		expiresAt: integer("expires_at", { mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)), // 默认7天后过期
+	},
+	(table) => [
+		index("idx_test_mailboxes_email").on(table.email),
+		index("idx_test_mailboxes_domain").on(table.domain),
+		index("idx_test_mailboxes_prefix").on(table.prefix),
+	],
+);
+
 // 邮箱表 - 存储临时邮箱信息
 export const mailboxes = sqliteTable(
 	"mailboxes",

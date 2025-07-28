@@ -30,6 +30,7 @@ export function Navigation({
 	const navItems = [
 		{ href: "/", label: "首页", description: "获取临时邮箱" },
 		{ href: "/verify-mailbox", label: "邮箱验证", description: "验证码查看邮件" },
+		{ href: "/test-mailboxes", label: "测试邮箱", description: "管理测试邮箱数据" },
 		{ href: "/about", label: "关于", description: `了解 ${APP_CONFIG.project.displayName}` },
 		{ href: "/api-docs", label: "API文档", description: "开发者接口文档" },
 		{ href: "/faq", label: "FAQ", description: "常见问题" },

@@ -30,12 +30,17 @@ export default [
 		route("/contact", "routes/contact.tsx"),
 		route("/mail/:id", "routes/mail.$id.tsx"),
 	]),
+
+	// 独立页面路由（不使用布局）
 	route("/attachment/:id", "routes/attachment.$id.tsx"),
+	// 测试邮箱管理页面（无导航栏）
+	route("/test-mailboxes-db", "routes/test-mailboxes-db.tsx"),
 
 	// 管理员路由
 	route("/admin", "routes/admin.ts"),
 	route("/admin-login", "routes/admin-login.tsx"),
 	route("/admin/dashboard", "routes/admin.dashboard.tsx"),
+	route("/admin/import-test-mailboxes", "routes/admin.import-test-mailboxes.tsx"),
 	route("/admin/users", "routes/admin.users.tsx"),
 	route("/admin/users/batch", "routes/admin.users.batch.tsx"),
 	route("/admin/users/:id", "routes/admin.users.$id.tsx"),
@@ -56,6 +61,9 @@ export default [
 	route("/api/external/emails/:email", "routes/api.external.emails.$email.ts"),
 	route("/api/external/email/:id", "routes/api.external.email.$id.ts"),
 	route("/api/external/attachment/:id", "routes/api.external.attachment.$id.ts"),
+
+	// 测试邮箱API路由
+	route("/api/test-mailboxes", "routes/api.test-mailboxes.ts"),
 
 	route("/sitemap.xml", "routes/sitemap[.]xml.tsx"),
 	route("/robots.txt", "routes/robots[.]txt.tsx"),
