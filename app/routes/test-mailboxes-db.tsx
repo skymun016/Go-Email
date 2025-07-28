@@ -7,7 +7,7 @@ import { useLoaderData, useFetcher, useRouteError, isRouteErrorResponse, useSear
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 import { createDB } from "~/lib/db";
 import { getDatabase } from "~/config/app";
-import { testMailboxes } from "~/db/schema";
+import { testMailboxes, mailboxes } from "~/db/schema";
 import { asc, count, eq } from "drizzle-orm";
 
 // 处理延长时间的action
@@ -24,10 +24,35 @@ export async function action({ context, request }: ActionFunctionArgs) {
       // 延长7天
       const newExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
+      // 首先获取测试邮箱信息
+      const testMailbox = await db
+        .select()
+        .from(testMailboxes)
+        .where(eq(testMailboxes.id, parseInt(mailboxId as string)))
+        .limit(1);
+
+      if (testMailbox.length === 0) {
+        return { success: false, message: '测试邮箱不存在' };
+      }
+
+      // 更新测试邮箱表的过期时间
       await db
         .update(testMailboxes)
         .set({ expiresAt: newExpiresAt })
         .where(eq(testMailboxes.id, parseInt(mailboxId as string)));
+
+      // 同时更新实际邮箱表的过期时间（如果存在）
+      try {
+        await db
+          .update(mailboxes)
+          .set({ expiresAt: newExpiresAt })
+          .where(eq(mailboxes.email, testMailbox[0].email));
+
+        console.log(`✅ 同时更新了邮箱 ${testMailbox[0].email} 在两个表中的过期时间`);
+      } catch (error) {
+        console.log(`⚠️ 更新实际邮箱表失败，可能邮箱不存在: ${error}`);
+        // 不影响主要操作，继续执行
+      }
 
       return { success: true, message: '邮箱有效期已延长7天' };
     }
@@ -35,7 +60,7 @@ export async function action({ context, request }: ActionFunctionArgs) {
     return { success: false, message: '无效的操作' };
   } catch (error) {
     console.error("延长时间失败:", error);
-    return { success: false, message: `延长时间失败: ${error.message}` };
+    return { success: false, message: `延长时间失败: ${error instanceof Error ? error.message : '未知错误'}` };
   }
 }
 
@@ -91,7 +116,7 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
 
   } catch (error) {
     console.error("加载测试邮箱失败:", error);
-    throw new Response(`加载测试邮箱失败: ${error.message}`, { status: 500 });
+    throw new Response(`加载测试邮箱失败: ${error instanceof Error ? error.message : '未知错误'}`, { status: 500 });
   }
 }
 

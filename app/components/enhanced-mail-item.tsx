@@ -219,11 +219,6 @@ export function EnhancedMailItem({
 									)}
 								</button>
 							</div>
-							{!isRead && (
-								<span className="text-xs text-orange-600 font-medium">
-									复制后自动标记已读
-								</span>
-							)}
 						</div>
 					)}
 				</div>
