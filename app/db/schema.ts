@@ -13,12 +13,19 @@ export const testMailboxes = sqliteTable(
 		directLink: text("direct_link").notNull(),
 		copyCount: integer("copy_count").notNull().default(0),
 		remark: text("remark"), // 备注字段，允许NULL
+		registrationStatus: text("registration_status", { enum: ["registered", "unregistered"] }).default("unregistered"),
+		count: text("count", { enum: ["125", "625"] }),
+		saleStatus: text("sale_status", { enum: ["sold", "unsold"] }),
 		createdAt: integer("created_at", { mode: "timestamp" })
 			.notNull()
 			.$defaultFn(() => new Date()),
 		expiresAt: integer("expires_at", { mode: "timestamp" })
 			.notNull()
 			.$defaultFn(() => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)), // 默认7天后过期
+		updatedAt: integer("updated_at", { mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date())
+			.$onUpdateFn(() => new Date()),
 	},
 	(table) => [
 		index("idx_test_mailboxes_email").on(table.email),

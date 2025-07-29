@@ -8,7 +8,7 @@ import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 import { createDB } from "~/lib/db";
 import { getDatabase } from "~/config/app";
 import { testMailboxes, mailboxes } from "~/db/schema";
-import { asc, count, eq, like, sql } from "drizzle-orm";
+import { asc, count, eq, like, sql, and, isNull } from "drizzle-orm";
 
 // 处理延长时间的action
 export async function action({ context, request }: ActionFunctionArgs) {
@@ -20,6 +20,74 @@ export async function action({ context, request }: ActionFunctionArgs) {
     const action = formData.get('action');
     const mailboxId = formData.get('mailboxId');
 
+    if (action === 'updateRegistrationStatus') {
+      // 批量更新注册状态
+      try {
+        await db
+          .update(testMailboxes)
+          .set({ registrationStatus: 'unregistered' })
+          .where(eq(testMailboxes.registrationStatus, 'registered'));
+
+        return new Response(JSON.stringify({ success: true, message: '成功更新所有记录的注册状态为"未注册"' }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        console.error('更新注册状态失败:', error);
+        return new Response(JSON.stringify({ success: false, message: '更新注册状态失败' }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    if (action === 'delete' && mailboxId) {
+      // 删除邮箱
+      try {
+        // 首先获取测试邮箱信息
+        const testMailbox = await db
+          .select()
+          .from(testMailboxes)
+          .where(eq(testMailboxes.id, parseInt(mailboxId as string)))
+          .limit(1);
+
+        if (testMailbox.length === 0) {
+          return new Response(JSON.stringify({ success: false, message: '测试邮箱不存在' }), {
+            status: 404,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
+        const email = testMailbox[0].email;
+
+        // 从测试邮箱表删除
+        await db
+          .delete(testMailboxes)
+          .where(eq(testMailboxes.id, parseInt(mailboxId as string)));
+
+        // 同时从实际邮箱表删除（如果存在）
+        try {
+          await db
+            .delete(mailboxes)
+            .where(eq(mailboxes.email, email));
+
+          console.log(`✅ 同时删除了邮箱 ${email} 在两个表中的记录`);
+        } catch (error) {
+          console.log(`⚠️ 删除实际邮箱表记录失败，可能邮箱不存在: ${error}`);
+          // 不影响主要操作，继续执行
+        }
+
+        return new Response(JSON.stringify({ success: true, message: `邮箱 ${email} 已成功删除` }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        console.error("删除邮箱失败:", error);
+        return new Response(JSON.stringify({ success: false, message: `删除邮箱失败: ${error instanceof Error ? error.message : '未知错误'}` }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
     if (action === 'extend' && mailboxId) {
       // 首先获取测试邮箱信息
       const testMailbox = await db
@@ -29,7 +97,10 @@ export async function action({ context, request }: ActionFunctionArgs) {
         .limit(1);
 
       if (testMailbox.length === 0) {
-        return { success: false, message: '测试邮箱不存在' };
+        return new Response(JSON.stringify({ success: false, message: '测试邮箱不存在' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' }
+        });
       }
 
       // 从当前过期时间延长7天（修复逻辑）
@@ -57,13 +128,74 @@ export async function action({ context, request }: ActionFunctionArgs) {
         // 不影响主要操作，继续执行
       }
 
-      return { success: true, message: '邮箱有效期已延长7天' };
+      return new Response(JSON.stringify({ success: true, message: '邮箱有效期已延长7天' }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
-    return { success: false, message: '无效的操作' };
+    if (action === 'updateField' && mailboxId) {
+      // 更新字段（备注、注册状态、次数、售出状态）
+      const fieldName = formData.get('fieldName') as string;
+      const fieldValue = formData.get('fieldValue') as string;
+
+      if (!fieldName) {
+        return new Response(JSON.stringify({ success: false, message: '字段名称不能为空' }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      try {
+        const updateData: any = {
+          updatedAt: new Date()
+        };
+
+        // 根据字段名称设置更新值
+        switch (fieldName) {
+          case 'remark':
+            updateData.remark = fieldValue || null;
+            break;
+          case 'registrationStatus':
+            updateData.registrationStatus = fieldValue === 'clear' ? null : fieldValue;
+            break;
+          case 'count':
+            updateData.count = fieldValue === 'clear' ? null : fieldValue;
+            break;
+          case 'saleStatus':
+            updateData.saleStatus = fieldValue === 'clear' ? null : fieldValue;
+            break;
+          default:
+            return new Response(JSON.stringify({ success: false, message: '无效的字段名称' }), {
+              headers: { 'Content-Type': 'application/json' }
+            });
+        }
+
+        await db
+          .update(testMailboxes)
+          .set(updateData)
+          .where(eq(testMailboxes.id, parseInt(mailboxId as string)));
+
+        return new Response(JSON.stringify({ success: true, message: '字段已更新' }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        console.error("更新字段失败:", error);
+        return new Response(JSON.stringify({ success: false, message: `更新字段失败: ${error instanceof Error ? error.message : '未知错误'}` }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    return new Response(JSON.stringify({ success: false, message: '无效的操作' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' }
+    });
   } catch (error) {
-    console.error("延长时间失败:", error);
-    return { success: false, message: `延长时间失败: ${error instanceof Error ? error.message : '未知错误'}` };
+    console.error("操作失败:", error);
+    return new Response(JSON.stringify({ success: false, message: `操作失败: ${error instanceof Error ? error.message : '未知错误'}` }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 
@@ -73,28 +205,98 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
     const env = context.cloudflare.env;
     const db = createDB(getDatabase(env));
 
-    // 获取分页和搜索参数
+    // 获取分页、搜索和筛选参数
     const url = new URL(request.url);
     const page = parseInt(url.searchParams.get('page') || '1');
     const itemsPerPage = parseInt(url.searchParams.get('limit') || '50');
     const searchQuery = url.searchParams.get('search')?.trim() || '';
+    const registrationStatusFilter = decodeURIComponent(url.searchParams.get('registrationStatus') || '');
+    const countFilter = decodeURIComponent(url.searchParams.get('count') || '');
+    const saleStatusFilter = decodeURIComponent(url.searchParams.get('saleStatus') || '');
     const offset = (page - 1) * itemsPerPage;
 
-    console.log(`开始加载测试邮箱数据... 页码: ${page}, 每页: ${itemsPerPage}, 搜索: "${searchQuery}"`);
+    // 映射中文筛选值到数据库值
+    const mapRegistrationStatus = (value: string) => {
+      switch (value) {
+        case '已注册': return 'registered';
+        case '未注册': return 'unregistered';
+        case '未设置': return null;
+        default: return null;
+      }
+    };
 
-    // 第一步：获取分页的测试邮箱（升序排序，支持搜索）
-    let mailboxes;
+    const mapSaleStatus = (value: string) => {
+      switch (value) {
+        case '已出': return 'sold';
+        case '未出': return 'unsold';
+        case '未设置': return null;
+        default: return null;
+      }
+    };
+
+    const mapCount = (value: string) => {
+      switch (value) {
+        case '125': return '125';
+        case '625': return '625';
+        case '未设置': return null;
+        default: return null;
+      }
+    };
+
+    console.log(`开始加载测试邮箱数据... 页码: ${page}, 每页: ${itemsPerPage}, 搜索: "${searchQuery}", 筛选: 注册状态=${registrationStatusFilter}, 次数=${countFilter}, 售出状态=${saleStatusFilter}`);
+
+    // 构建查询条件
+    const conditions = [];
+
+    // 搜索条件
     if (searchQuery.length >= 2) {
-      // 有搜索条件
+      conditions.push(sql`LOWER(${testMailboxes.email}) LIKE LOWER(${`%${searchQuery}%`})`);
+    }
+
+    // 筛选条件
+    if (registrationStatusFilter && registrationStatusFilter !== '全部') {
+      const dbValue = mapRegistrationStatus(registrationStatusFilter);
+      if (dbValue === null) {
+        conditions.push(isNull(testMailboxes.registrationStatus));
+      } else {
+        conditions.push(eq(testMailboxes.registrationStatus, dbValue));
+      }
+    }
+
+    if (countFilter && countFilter !== '全部') {
+      const dbValue = mapCount(countFilter);
+      if (dbValue === null) {
+        conditions.push(isNull(testMailboxes.count));
+      } else {
+        conditions.push(eq(testMailboxes.count, dbValue));
+      }
+    }
+
+    if (saleStatusFilter && saleStatusFilter !== '全部') {
+      const dbValue = mapSaleStatus(saleStatusFilter);
+      if (dbValue === null) {
+        conditions.push(isNull(testMailboxes.saleStatus));
+      } else {
+        conditions.push(eq(testMailboxes.saleStatus, dbValue));
+      }
+    }
+
+    // 第一步：获取分页的测试邮箱（升序排序，支持搜索和筛选）
+    let mailboxes;
+    if (conditions.length > 0) {
+      // 使用and()函数来组合多个条件
+      const combinedCondition = conditions.length === 1
+        ? conditions[0]
+        : and(...conditions);
+
       mailboxes = await db
         .select()
         .from(testMailboxes)
-        .where(sql`LOWER(${testMailboxes.email}) LIKE LOWER(${`%${searchQuery}%`})`)
+        .where(combinedCondition)
         .orderBy(asc(testMailboxes.id))
         .limit(itemsPerPage)
         .offset(offset);
     } else {
-      // 无搜索条件
       mailboxes = await db
         .select()
         .from(testMailboxes)
@@ -105,22 +307,26 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
 
     console.log(`成功获取 ${mailboxes.length} 个邮箱`);
 
-    // 第二步：获取总数（支持搜索条件）
+    // 第二步：获取总数（支持搜索和筛选条件）
     let totalCount = 0;
     try {
-      if (searchQuery.length >= 2) {
-        // 有搜索条件的总数查询
+      if (conditions.length > 0) {
+        // 有条件的总数查询
+        const combinedCondition = conditions.length === 1
+          ? conditions[0]
+          : and(...conditions);
+
         const totalCountResult = await db
           .select({ count: count() })
           .from(testMailboxes)
-          .where(sql`LOWER(${testMailboxes.email}) LIKE LOWER(${`%${searchQuery}%`})`);
+          .where(combinedCondition);
         totalCount = totalCountResult[0]?.count || 0;
       } else {
-        // 无搜索条件的总数查询
+        // 无条件的总数查询
         const totalCountResult = await db.select({ count: count() }).from(testMailboxes);
         totalCount = totalCountResult[0]?.count || 0;
       }
-      console.log(`总数查询成功: ${totalCount} (搜索: "${searchQuery}")`);
+      console.log(`总数查询成功: ${totalCount} (搜索: "${searchQuery}", 筛选条件: ${conditions.length}个)`);
     } catch (countError) {
       console.error("总数查询失败:", countError);
       // 如果count查询失败，使用邮箱数组长度作为备选
@@ -130,6 +336,7 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
     console.log("所有数据加载完成");
 
     const totalPages = Math.ceil(totalCount / itemsPerPage);
+    const isFiltering = !!(registrationStatusFilter || countFilter || saleStatusFilter);
 
     return {
       mailboxes,
@@ -140,7 +347,13 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
       hasNextPage: page < totalPages,
       hasPrevPage: page > 1,
       searchQuery,
-      isSearching: searchQuery.length >= 2
+      isSearching: searchQuery.length >= 2,
+      filters: {
+        registrationStatus: registrationStatusFilter,
+        count: countFilter,
+        saleStatus: saleStatusFilter
+      },
+      isFiltering
     };
 
   } catch (error) {
@@ -150,7 +363,7 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
 }
 
 export default function TestMailboxesDB() {
-  const { mailboxes, totalCount, currentPage, itemsPerPage, totalPages, hasNextPage, hasPrevPage, searchQuery, isSearching } = useLoaderData<typeof loader>();
+  const { mailboxes, totalCount, currentPage, itemsPerPage, totalPages, hasNextPage, hasPrevPage, searchQuery, isSearching, filters, isFiltering } = useLoaderData<typeof loader>();
   const fetcher = useFetcher();
   const [copiedItems, setCopiedItems] = useState<Record<string, boolean>>({});
   const [currentHost, setCurrentHost] = useState<string>('');
@@ -158,6 +371,7 @@ export default function TestMailboxesDB() {
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [searchInput, setSearchInput] = useState(searchQuery || '');
   const [isSearchLoading, setIsSearchLoading] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; email: string } | null>(null);
 
   // 备注编辑状态管理
   const [editingRemark, setEditingRemark] = useState<Record<number, boolean>>({});
@@ -205,6 +419,110 @@ export default function TestMailboxesDB() {
   useEffect(() => {
     setSearchInput(searchQuery || '');
   }, [searchQuery]);
+
+  // 筛选处理函数
+  const handleFilter = (filterType: string, value: string) => {
+    const newSearchParams = new URLSearchParams(searchParams);
+
+    if (value && value !== 'all') {
+      newSearchParams.set(filterType, value);
+    } else {
+      newSearchParams.delete(filterType);
+    }
+
+    newSearchParams.set('page', '1'); // 筛选时重置到第一页
+    setSearchParams(newSearchParams);
+  };
+
+  // 清除所有筛选
+  const clearAllFilters = () => {
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.delete('registrationStatus');
+    newSearchParams.delete('count');
+    newSearchParams.delete('saleStatus');
+    newSearchParams.set('page', '1');
+    setSearchParams(newSearchParams);
+  };
+
+  // 删除邮箱
+  const handleDelete = async (id: string, email: string) => {
+    setDeleteConfirm({ id, email });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm) return;
+
+    try {
+      const formData = new FormData();
+      formData.append('action', 'delete');
+      formData.append('mailboxId', deleteConfirm.id);
+
+      const response = await fetch(window.location.pathname, {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setNotification({
+          message: result.message,
+          type: 'success'
+        });
+        setTimeout(() => setNotification(null), 3000);
+        // 刷新页面
+        window.location.reload();
+      } else {
+        setNotification({
+          message: result.message || '删除失败',
+          type: 'error'
+        });
+        setTimeout(() => setNotification(null), 3000);
+      }
+    } catch (error) {
+      setNotification({
+        message: '删除操作失败',
+        type: 'error'
+      });
+      setTimeout(() => setNotification(null), 3000);
+    } finally {
+      setDeleteConfirm(null);
+    }
+  };
+
+  // 更新字段
+  const updateField = async (mailboxId: number, fieldName: string, fieldValue: string) => {
+    try {
+      const formData = new FormData();
+      formData.append('mailboxId', mailboxId.toString());
+      formData.append('fieldName', fieldName);
+      formData.append('fieldValue', fieldValue);
+
+      const response = await fetch('/api/update-field', {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // 刷新页面以显示更新
+        window.location.reload();
+      } else {
+        setNotification({
+          message: result.message || '更新失败',
+          type: 'error'
+        });
+        setTimeout(() => setNotification(null), 3000);
+      }
+    } catch (error) {
+      setNotification({
+        message: '更新操作失败',
+        type: 'error'
+      });
+      setTimeout(() => setNotification(null), 3000);
+    }
+  };
 
   // 延长时间按钮状态管理
   const [extendingTime, setExtendingTime] = useState<Record<number, boolean>>({});
@@ -451,6 +769,47 @@ export default function TestMailboxesDB() {
             <span style={{ color: '#495057' }}>总邮箱数：</span>
             <span style={{ color: '#007bff' }}>{totalCount}</span>
           </div>
+
+          {/* 临时更新按钮 */}
+          <div style={{ marginTop: '10px' }}>
+            <button
+              onClick={async () => {
+                if (confirm('确定要将所有记录的注册状态更新为"未注册"吗？')) {
+                  try {
+                    const formData = new FormData();
+                    formData.append('action', 'updateRegistrationStatus');
+
+                    const response = await fetch(window.location.pathname, {
+                      method: 'POST',
+                      body: formData
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                      alert('更新成功！');
+                      window.location.reload();
+                    } else {
+                      alert('更新失败：' + result.message);
+                    }
+                  } catch (error) {
+                    alert('更新失败：' + error);
+                  }
+                }
+              }}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+            >
+              批量更新注册状态为"未注册"
+            </button>
+          </div>
         </div>
 
         {/* 搜索框 */}
@@ -560,6 +919,121 @@ export default function TestMailboxesDB() {
           )}
         </div>
 
+        {/* 筛选器区域 */}
+        <div style={{
+          marginTop: '20px',
+          padding: '16px',
+          backgroundColor: '#f8f9fa',
+          borderRadius: '8px',
+          border: '1px solid #e9ecef'
+        }}>
+          <h3 style={{
+            margin: '0 0 12px 0',
+            fontSize: '16px',
+            fontWeight: '600',
+            color: '#495057'
+          }}>筛选条件</h3>
+
+          <div style={{
+            display: 'flex',
+            gap: '16px',
+            alignItems: 'center',
+            flexWrap: 'wrap'
+          }}>
+            {/* 注册状态筛选 */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label style={{ fontSize: '14px', color: '#495057', minWidth: '80px' }}>注册状态:</label>
+              <select
+                value={filters.registrationStatus || 'all'}
+                onChange={(e) => handleFilter('registrationStatus', e.target.value)}
+                style={{
+                  padding: '6px 8px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  backgroundColor: 'white'
+                }}
+              >
+                <option value="all">全部</option>
+                <option value="已注册">已注册</option>
+                <option value="未注册">未注册</option>
+                <option value="unset">未设置</option>
+              </select>
+            </div>
+
+            {/* 次数筛选 */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label style={{ fontSize: '14px', color: '#495057', minWidth: '50px' }}>次数:</label>
+              <select
+                value={filters.count || 'all'}
+                onChange={(e) => handleFilter('count', e.target.value)}
+                style={{
+                  padding: '6px 8px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  backgroundColor: 'white'
+                }}
+              >
+                <option value="all">全部</option>
+                <option value="125">125</option>
+                <option value="625">625</option>
+                <option value="unset">未设置</option>
+              </select>
+            </div>
+
+            {/* 售出状态筛选 */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label style={{ fontSize: '14px', color: '#495057', minWidth: '80px' }}>售出状态:</label>
+              <select
+                value={filters.saleStatus || 'all'}
+                onChange={(e) => handleFilter('saleStatus', e.target.value)}
+                style={{
+                  padding: '6px 8px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  backgroundColor: 'white'
+                }}
+              >
+                <option value="all">全部</option>
+                <option value="已出">已出</option>
+                <option value="未出">未出</option>
+                <option value="unset">未设置</option>
+              </select>
+            </div>
+
+            {/* 清除筛选按钮 */}
+            {isFiltering && (
+              <button
+                onClick={clearAllFilters}
+                style={{
+                  padding: '6px 12px',
+                  fontSize: '14px',
+                  border: '1px solid #dc3545',
+                  backgroundColor: 'white',
+                  color: '#dc3545',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                清除所有筛选
+              </button>
+            )}
+          </div>
+
+          {/* 筛选结果统计 */}
+          {isFiltering && (
+            <div style={{
+              marginTop: '12px',
+              fontSize: '14px',
+              color: '#6c757d'
+            }}>
+              筛选结果：找到 <strong>{totalCount}</strong> 个邮箱
+            </div>
+          )}
+        </div>
+
       </div>
 
       {/* 邮箱列表 */}
@@ -616,7 +1090,7 @@ export default function TestMailboxesDB() {
                   textAlign: 'center',
                   borderBottom: '1px solid #e9ecef',
                   borderRight: '1px solid #e9ecef',
-                  width: '15%',
+                  width: '10%',
                   fontSize: '14px',
                   fontWeight: '600'
                 }}>备注</th>
@@ -624,7 +1098,43 @@ export default function TestMailboxesDB() {
                   padding: '12px',
                   textAlign: 'center',
                   borderBottom: '1px solid #e9ecef',
-                  width: '25%',
+                  borderRight: '1px solid #e9ecef',
+                  width: '8%',
+                  fontSize: '14px',
+                  fontWeight: '600'
+                }}>注册状态</th>
+                <th style={{
+                  padding: '12px',
+                  textAlign: 'center',
+                  borderBottom: '1px solid #e9ecef',
+                  borderRight: '1px solid #e9ecef',
+                  width: '6%',
+                  fontSize: '14px',
+                  fontWeight: '600'
+                }}>次数</th>
+                <th style={{
+                  padding: '12px',
+                  textAlign: 'center',
+                  borderBottom: '1px solid #e9ecef',
+                  borderRight: '1px solid #e9ecef',
+                  width: '8%',
+                  fontSize: '14px',
+                  fontWeight: '600'
+                }}>售出状态</th>
+                <th style={{
+                  padding: '12px',
+                  textAlign: 'center',
+                  borderBottom: '1px solid #e9ecef',
+                  borderRight: '1px solid #e9ecef',
+                  width: '12%',
+                  fontSize: '14px',
+                  fontWeight: '600'
+                }}>更新日期</th>
+                <th style={{
+                  padding: '12px',
+                  textAlign: 'center',
+                  borderBottom: '1px solid #e9ecef',
+                  width: '15%',
                   fontSize: '14px',
                   fontWeight: '600'
                 }}>操作</th>
@@ -777,10 +1287,113 @@ export default function TestMailboxesDB() {
                         </div>
                       )}
                     </td>
+
+                    {/* 注册状态列 */}
                     <td style={{
                       padding: '12px',
                       textAlign: 'center',
-                      width: '25%'
+                      borderRight: '1px solid #e9ecef',
+                      width: '8%'
+                    }}>
+                      <select
+                        value={mailbox.registrationStatus || 'unregistered'}
+                        onChange={(e) => updateField(mailbox.id, 'registrationStatus', e.target.value)}
+                        style={{
+                          padding: '4px 6px',
+                          fontSize: '11px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          backgroundColor: 'white',
+                          width: '100%',
+                          maxWidth: '80px'
+                        }}
+                      >
+                        <option value="registered">已注册</option>
+                        <option value="unregistered">未注册</option>
+                      </select>
+                    </td>
+
+                    {/* 次数列 */}
+                    <td style={{
+                      padding: '12px',
+                      textAlign: 'center',
+                      borderRight: '1px solid #e9ecef',
+                      width: '6%'
+                    }}>
+                      <select
+                        value={mailbox.count || ''}
+                        onChange={(e) => updateField(mailbox.id, 'count', e.target.value)}
+                        style={{
+                          padding: '4px 6px',
+                          fontSize: '11px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          backgroundColor: 'white',
+                          width: '100%',
+                          maxWidth: '60px'
+                        }}
+                      >
+                        <option value="">-</option>
+                        <option value="125">125</option>
+                        <option value="625">625</option>
+                        <option value="clear">清空</option>
+                      </select>
+                    </td>
+
+                    {/* 售出状态列 */}
+                    <td style={{
+                      padding: '12px',
+                      textAlign: 'center',
+                      borderRight: '1px solid #e9ecef',
+                      width: '8%'
+                    }}>
+                      <select
+                        value={mailbox.saleStatus || ''}
+                        onChange={(e) => updateField(mailbox.id, 'saleStatus', e.target.value)}
+                        style={{
+                          padding: '4px 6px',
+                          fontSize: '11px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          backgroundColor: 'white',
+                          width: '100%',
+                          maxWidth: '70px'
+                        }}
+                      >
+                        <option value="">-</option>
+                        <option value="sold">已出</option>
+                        <option value="unsold">未出</option>
+                        <option value="clear">清空</option>
+                      </select>
+                    </td>
+
+                    {/* 更新日期列 */}
+                    <td style={{
+                      padding: '12px',
+                      textAlign: 'center',
+                      borderRight: '1px solid #e9ecef',
+                      width: '12%'
+                    }}>
+                      {mailbox.updatedAt && !isNaN(new Date(mailbox.updatedAt).getTime()) ? (
+                        <div style={{ fontSize: '11px', color: '#6c757d' }}>
+                          {new Date(mailbox.updatedAt).toLocaleString('zh-CN', {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit'
+                          })}
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: '11px', color: '#adb5bd' }}>-</span>
+                      )}
+                    </td>
+
+                    <td style={{
+                      padding: '12px',
+                      textAlign: 'center',
+                      width: '15%'
                     }}>
                       <div className="action-buttons" style={{
                         display: 'flex',
@@ -840,6 +1453,23 @@ export default function TestMailboxesDB() {
                           }}
                         >
                           {extendingTime[mailbox.id] ? '处理中...' : '延长时间'}
+                        </button>
+                        <button
+                          className="action-button"
+                          onClick={() => handleDelete(mailbox.id.toString(), mailbox.email)}
+                          style={{
+                            padding: '6px 10px',
+                            fontSize: '11px',
+                            border: '1px solid #dc3545',
+                            backgroundColor: '#dc3545',
+                            color: 'white',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            minWidth: '60px',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          🗑️ 删除
                         </button>
                       </div>
                     </td>
@@ -954,6 +1584,82 @@ export default function TestMailboxesDB() {
           <p style={{ fontSize: '14px' }}>
             请先运行导入脚本将数据导入到数据库中
           </p>
+        </div>
+      )}
+
+      {/* 删除确认对话框 */}
+      {deleteConfirm && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '24px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            maxWidth: '400px',
+            width: '90%'
+          }}>
+            <h3 style={{
+              margin: '0 0 16px 0',
+              fontSize: '18px',
+              fontWeight: '600',
+              color: '#dc3545'
+            }}>
+              确认删除
+            </h3>
+            <p style={{
+              margin: '0 0 20px 0',
+              fontSize: '14px',
+              color: '#495057',
+              lineHeight: '1.5'
+            }}>
+              确定要删除邮箱 <strong>{deleteConfirm.email}</strong> 吗？此操作不可撤销。
+            </p>
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'flex-end'
+            }}>
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                style={{
+                  padding: '8px 16px',
+                  fontSize: '14px',
+                  border: '1px solid #6c757d',
+                  backgroundColor: 'white',
+                  color: '#6c757d',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                取消
+              </button>
+              <button
+                onClick={confirmDelete}
+                style={{
+                  padding: '8px 16px',
+                  fontSize: '14px',
+                  border: '1px solid #dc3545',
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                确认删除
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

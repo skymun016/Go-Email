@@ -64,6 +64,8 @@ export default [
 
 	// 测试邮箱API路由
 	route("/api/test-mailboxes", "routes/api.test-mailboxes.ts"),
+	route("/api/update-field", "routes/api.update-field.tsx"),
+	route("/api/update-registration-status", "routes/api.update-registration-status.tsx"),
 
 	route("/sitemap.xml", "routes/sitemap[.]xml.tsx"),
 	route("/robots.txt", "routes/robots[.]txt.tsx"),
