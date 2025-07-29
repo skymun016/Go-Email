@@ -252,6 +252,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
       case "mark-registered": {
         // 获取可选的 viewUsageLink 参数
         const viewUsageLink = formData.get("viewUsageLink") as string | null;
+        console.log("🔗 API接收到的 viewUsageLink:", viewUsageLink);
 
         // 检查邮箱是否存在
         const existingMailbox = await db
