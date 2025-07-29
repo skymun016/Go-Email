@@ -1,4 +1,4 @@
-import { createCookie, createMemorySessionStorage } from "react-router";
+import { createCookie, createMemorySessionStorage, redirect } from "react-router";
 import { createWorkersKVSessionStorage } from "@react-router/cloudflare";
 import bcrypt from "bcryptjs";
 import { getKVNamespace, APP_CONFIG } from "~/config/app";
@@ -143,7 +143,10 @@ export async function requireAdmin(request: Request, env: Env) {
 	const adminId = session.get("adminId");
 
 	if (!adminId) {
-		throw new Response("Unauthorized", { status: 401 });
+		// 获取当前页面URL作为返回地址
+		const url = new URL(request.url);
+		const returnTo = encodeURIComponent(url.pathname + url.search);
+		return Response.redirect(`${url.origin}/admin-login?returnTo=${returnTo}`, 302);
 	}
 
 	const db = createDB(env.DB);
@@ -152,7 +155,10 @@ export async function requireAdmin(request: Request, env: Env) {
 	});
 
 	if (!admin) {
-		throw new Response("Unauthorized", { status: 401 });
+		// 获取当前页面URL作为返回地址
+		const url = new URL(request.url);
+		const returnTo = encodeURIComponent(url.pathname + url.search);
+		return Response.redirect(`${url.origin}/admin-login?returnTo=${returnTo}`, 302);
 	}
 
 	return admin;

@@ -67,6 +67,9 @@ export default [
 	route("/api/update-field", "routes/api.update-field.tsx"),
 	route("/api/update-registration-status", "routes/api.update-registration-status.tsx"),
 
+	// 自动化脚本API路由
+	route("/api/automation", "routes/api.automation.ts"),
+
 	route("/sitemap.xml", "routes/sitemap[.]xml.tsx"),
 	route("/robots.txt", "routes/robots[.]txt.tsx"),
 	route("/site.webmanifest", "routes/site[.]webmanifest.tsx"),

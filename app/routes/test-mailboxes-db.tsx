@@ -22,7 +22,10 @@ export async function action({ context, request }: Route.ActionArgs) {
     const env = context.cloudflare.env;
 
     // 验证管理员权限
-    await requireAdmin(request, env);
+    const adminResult = await requireAdmin(request, env);
+    if (adminResult instanceof Response) {
+      return adminResult; // 返回重定向响应
+    }
 
     const db = createDB(getDatabase(env));
 
@@ -272,7 +275,10 @@ export async function loader({ context, request }: Route.LoaderArgs) {
     const env = context.cloudflare.env;
 
     // 验证管理员权限
-    await requireAdmin(request, env);
+    const adminResult = await requireAdmin(request, env);
+    if (adminResult instanceof Response) {
+      return adminResult; // 返回重定向响应
+    }
 
     const db = createDB(getDatabase(env));
 

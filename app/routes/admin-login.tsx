@@ -78,8 +78,13 @@ export async function action({ request, context }: any) {
 
 		console.log("🔐 Admin login successful, setting session for:", admin.username);
 
-		// 提交session并重定向到仪表板
-		return redirect("/admin/dashboard", {
+		// 获取返回地址
+		const url = new URL(request.url);
+		const returnTo = url.searchParams.get("returnTo");
+		const redirectUrl = returnTo ? decodeURIComponent(returnTo) : "/admin/dashboard";
+
+		// 提交session并重定向
+		return redirect(redirectUrl, {
 			headers: {
 				"Set-Cookie": await commitAdminSession(session, env),
 			},
