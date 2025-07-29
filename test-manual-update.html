@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手动更新邮箱状态测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: #f9f9f9;
+        }
+        .command {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            margin: 10px 0;
+            cursor: pointer;
+        }
+        .command:hover {
+            background: #4a5568;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success {
+            background: #c6f6d5;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+        .error {
+            background: #fed7d7;
+            color: #742a2a;
+            border: 1px solid #fc8181;
+        }
+        .info {
+            background: #bee3f8;
+            color: #2a4365;
+            border: 1px solid #90cdf4;
+        }
+        button {
+            background: #4299e1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #3182ce;
+        }
+        .debug-info {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 手动更新邮箱状态测试</h1>
+        
+        <div class="test-section">
+            <h3>📋 测试说明</h3>
+            <p>这个页面用于测试自动注册脚本的手动更新功能。当自动检测失败时，可以使用手动命令来更新邮箱状态。</p>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 当前状态检查</h3>
+            <button onclick="checkCurrentStatus()">检查当前状态</button>
+            <div id="statusResult" class="debug-info"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📧 设置测试邮箱</h3>
+            <input type="text" id="testEmail" placeholder="输入测试邮箱地址" style="width: 300px; padding: 8px; margin: 5px;">
+            <button onclick="setTestEmail()">设置邮箱</button>
+            <div id="setEmailResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🚀 手动更新测试</h3>
+            <button onclick="testManualUpdate()">执行手动更新</button>
+            <div id="updateResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>💻 控制台命令</h3>
+            <p>您也可以直接在浏览器控制台中执行以下命令：</p>
+            <div class="command" onclick="copyToClipboard('window.manualUpdateEmailStatus()')">
+                window.manualUpdateEmailStatus()
+            </div>
+            <div class="command" onclick="copyToClipboard('window.resetAugmentStates()')">
+                window.resetAugmentStates()
+            </div>
+            <p style="font-size: 12px; color: #666;">点击命令可复制到剪贴板</p>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 调试信息</h3>
+            <button onclick="showDebugInfo()">显示调试信息</button>
+            <div id="debugInfo" class="debug-info"></div>
+        </div>
+    </div>
+
+    <script>
+        function checkCurrentStatus() {
+            const result = document.getElementById('statusResult');
+            const currentEmail = localStorage.getItem('augment_current_email');
+            const hasManualFunction = typeof window.manualUpdateEmailStatus === 'function';
+            const hasResetFunction = typeof window.resetAugmentStates === 'function';
+            
+            result.innerHTML = `当前状态:
+- localStorage邮箱: ${currentEmail || '未设置'}
+- 手动更新函数: ${hasManualFunction ? '✅ 可用' : '❌ 不可用'}
+- 重置函数: ${hasResetFunction ? '✅ 可用' : '❌ 不可用'}
+- 脚本状态: ${hasManualFunction ? '已加载' : '未加载或未启动'}`;
+        }
+
+        function setTestEmail() {
+            const email = document.getElementById('testEmail').value.trim();
+            const result = document.getElementById('setEmailResult');
+            
+            if (!email) {
+                result.innerHTML = '<div class="error">请输入邮箱地址</div>';
+                return;
+            }
+            
+            localStorage.setItem('augment_current_email', email);
+            result.innerHTML = `<div class="success">✅ 已设置测试邮箱: ${email}</div>`;
+        }
+
+        async function testManualUpdate() {
+            const result = document.getElementById('updateResult');
+            
+            if (typeof window.manualUpdateEmailStatus !== 'function') {
+                result.innerHTML = '<div class="error">❌ 手动更新函数不可用，请确保自动注册脚本已加载</div>';
+                return;
+            }
+            
+            try {
+                result.innerHTML = '<div class="info">⏳ 正在执行手动更新...</div>';
+                const success = await window.manualUpdateEmailStatus();
+                
+                if (success) {
+                    result.innerHTML = '<div class="success">✅ 手动更新成功！</div>';
+                } else {
+                    result.innerHTML = '<div class="error">❌ 手动更新失败</div>';
+                }
+            } catch (error) {
+                result.innerHTML = `<div class="error">❌ 手动更新出错: ${error.message}</div>`;
+            }
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('已复制到剪贴板: ' + text);
+            }).catch(err => {
+                console.error('复制失败:', err);
+                alert('复制失败，请手动复制: ' + text);
+            });
+        }
+
+        function showDebugInfo() {
+            const result = document.getElementById('debugInfo');
+            const currentEmail = localStorage.getItem('augment_current_email');
+            
+            result.innerHTML = `调试信息:
+时间: ${new Date().toLocaleString()}
+当前URL: ${window.location.href}
+localStorage邮箱: ${currentEmail || '未设置'}
+用户代理: ${navigator.userAgent}
+脚本函数状态:
+- manualUpdateEmailStatus: ${typeof window.manualUpdateEmailStatus}
+- resetAugmentStates: ${typeof window.resetAugmentStates}
+
+localStorage所有项目:
+${Object.keys(localStorage).map(key => `- ${key}: ${localStorage.getItem(key)}`).join('\n')}`;
+        }
+
+        // 页面加载时自动检查状态
+        window.addEventListener('load', () => {
+            setTimeout(checkCurrentStatus, 1000);
+        });
+    </script>
+</body>
+</html>

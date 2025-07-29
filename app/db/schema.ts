@@ -17,6 +17,7 @@ export const testMailboxes = sqliteTable(
 		registrationStatus: text("registration_status", { enum: ["registered", "unregistered"] }).default("unregistered"),
 		count: text("count", { enum: ["125", "650"] }),
 		saleStatus: text("sale_status", { enum: ["sold", "unsold"] }),
+		isAutoRegistered: integer("is_auto_registered", { mode: "boolean" }).notNull().default(false), // 是否通过自动注册脚本注册
 		createdAt: integer("created_at", { mode: "timestamp" })
 			.notNull()
 			.$defaultFn(() => new Date()),

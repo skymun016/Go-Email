@@ -264,13 +264,14 @@ export async function action({ request, context }: ActionFunctionArgs) {
           }, { status: 404 });
         }
         
-        // 更新邮箱状态：已注册，次数125，未售出
+        // 更新邮箱状态：已注册，次数125，未售出，标记为自动注册
         await db
           .update(testMailboxes)
           .set({
             registrationStatus: "registered",
             count: "125",
             saleStatus: "unsold",
+            isAutoRegistered: true,
             updatedAt: new Date()
           })
           .where(eq(testMailboxes.email, email));
@@ -286,12 +287,13 @@ export async function action({ request, context }: ActionFunctionArgs) {
         
         return data({
           success: true,
-          message: "邮箱状态已更新为已注册",
+          message: "邮箱状态已更新为已注册（自动注册脚本）",
           data: {
             email: email,
             registrationStatus: "registered",
             count: "125",
-            saleStatus: "unsold"
+            saleStatus: "unsold",
+            isAutoRegistered: true
           }
         });
       }

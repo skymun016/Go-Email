@@ -388,6 +388,10 @@ export async function loader({ context, request }: Route.LoaderArgs) {
         conditions.push(eq(testMailboxes.registrationStatus, 'registered'));
         conditions.push(eq(testMailboxes.saleStatus, 'sold'));
         break;
+      case 'auto_registered':
+        // Tab 4: 自动注册邮箱
+        conditions.push(eq(testMailboxes.isAutoRegistered, true));
+        break;
     }
 
     // 构建排序条件
@@ -459,6 +463,19 @@ export async function loader({ context, request }: Route.LoaderArgs) {
       totalCount = mailboxes.length;
     }
 
+    // 第三步：获取自动注册邮箱统计
+    let autoRegisteredCount = 0;
+    try {
+      const autoRegisteredResult = await db
+        .select({ count: count() })
+        .from(testMailboxes)
+        .where(eq(testMailboxes.isAutoRegistered, true));
+      autoRegisteredCount = autoRegisteredResult[0]?.count || 0;
+      console.log(`自动注册邮箱统计: ${autoRegisteredCount}`);
+    } catch (autoCountError) {
+      console.error("自动注册邮箱统计查询失败:", autoCountError);
+    }
+
     console.log("所有数据加载完成");
 
     const totalPages = Math.ceil(totalCount / itemsPerPage);
@@ -467,6 +484,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
     return {
       mailboxes,
       totalCount,
+      autoRegisteredCount,
       currentPage: page,
       itemsPerPage,
       totalPages,
@@ -492,7 +510,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 }
 
 export default function TestMailboxesDB() {
-  const { mailboxes, totalCount, currentPage, itemsPerPage, totalPages, hasNextPage, hasPrevPage, searchQuery, isSearching, filters, isFiltering, activeTab, sortBy, sortOrder } = useLoaderData<typeof loader>();
+  const { mailboxes, totalCount, autoRegisteredCount, currentPage, itemsPerPage, totalPages, hasNextPage, hasPrevPage, searchQuery, isSearching, filters, isFiltering, activeTab, sortBy, sortOrder } = useLoaderData<typeof loader>();
   const fetcher = useFetcher();
   const [copiedItems, setCopiedItems] = useState<Record<string, boolean>>({});
   const [currentHost, setCurrentHost] = useState<string>('');
@@ -965,6 +983,30 @@ export default function TestMailboxesDB() {
             <span style={{ color: '#007bff' }}>{totalCount}</span>
           </div>
 
+          {/* 自动注册邮箱统计 */}
+          {autoRegisteredCount > 0 && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              fontSize: '16px',
+              fontWeight: '500',
+              marginTop: '8px',
+              color: '#28a745'
+            }}>
+              <span>🤖</span>
+              <span>自动注册：{autoRegisteredCount} 个</span>
+              <span style={{
+                fontSize: '12px',
+                color: '#6c757d',
+                fontWeight: 'normal'
+              }}>
+                ({((autoRegisteredCount / totalCount) * 100).toFixed(1)}%)
+              </span>
+            </div>
+          )}
+
           {/* 临时更新按钮 */}
           <div style={{ marginTop: '10px' }}>
             <button
@@ -1078,6 +1120,36 @@ export default function TestMailboxesDB() {
           >
             已注册已售出
           </button>
+          {autoRegisteredCount > 0 && (
+            <button
+              onClick={() => switchTab('auto_registered')}
+              style={{
+                padding: '12px 24px',
+                backgroundColor: activeTab === 'auto_registered' ? '#28a745' : '#f8f9fa',
+                color: activeTab === 'auto_registered' ? 'white' : '#495057',
+                border: `1px solid ${activeTab === 'auto_registered' ? '#28a745' : '#e9ecef'}`,
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '500',
+                transition: 'all 0.2s ease',
+                position: 'relative'
+              }}
+            >
+              🤖 自动注册
+              <span style={{
+                marginLeft: '6px',
+                fontSize: '12px',
+                backgroundColor: activeTab === 'auto_registered' ? 'rgba(255,255,255,0.2)' : '#28a745',
+                color: activeTab === 'auto_registered' ? 'white' : 'white',
+                padding: '2px 6px',
+                borderRadius: '10px',
+                fontWeight: 'bold'
+              }}>
+                {autoRegisteredCount}
+              </span>
+            </button>
+          )}
         </div>
 
         {/* 搜索和筛选区域 - 单行布局 */}
@@ -1511,34 +1583,59 @@ export default function TestMailboxesDB() {
                       borderRight: '1px solid #e9ecef',
                       width: '22%'
                     }}>
-                      <div
-                        className="email-cell"
-                        style={{
-                          fontFamily: 'monospace',
-                          fontSize: '13px',
-                          wordBreak: 'break-all',
-                          lineHeight: '1.4',
-                          color: '#007bff',
-                          cursor: 'pointer',
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          transition: 'background-color 0.2s ease',
-                          backgroundColor: copiedItems[`email-${mailbox.id}`] ? '#d4edda' : 'transparent'
-                        }}
-                        onClick={() => copyEmailAddress(mailbox.email, mailbox.id)}
-                        onMouseEnter={(e) => {
-                          if (!copiedItems[`email-${mailbox.id}`]) {
-                            e.currentTarget.style.backgroundColor = '#f8f9fa';
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!copiedItems[`email-${mailbox.id}`]) {
-                            e.currentTarget.style.backgroundColor = 'transparent';
-                          }
-                        }}
-                        title="点击复制邮箱地址"
-                      >
-                        {copiedItems[`email-${mailbox.id}`] ? '✓ 已复制' : mailbox.email}
+                      <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+                        <div
+                          className="email-cell"
+                          style={{
+                            fontFamily: 'monospace',
+                            fontSize: '13px',
+                            wordBreak: 'break-all',
+                            lineHeight: '1.4',
+                            color: '#007bff',
+                            cursor: 'pointer',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            transition: 'background-color 0.2s ease',
+                            backgroundColor: copiedItems[`email-${mailbox.id}`] ? '#d4edda' : 'transparent'
+                          }}
+                          onClick={() => copyEmailAddress(mailbox.email, mailbox.id)}
+                          onMouseEnter={(e) => {
+                            if (!copiedItems[`email-${mailbox.id}`]) {
+                              e.currentTarget.style.backgroundColor = '#f8f9fa';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!copiedItems[`email-${mailbox.id}`]) {
+                              e.currentTarget.style.backgroundColor = 'transparent';
+                            }
+                          }}
+                          title="点击复制邮箱地址"
+                        >
+                          {copiedItems[`email-${mailbox.id}`] ? '✓ 已复制' : mailbox.email}
+                        </div>
+                        {/* 自动注册角标 */}
+                        {mailbox.isAutoRegistered && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              top: '-2px',
+                              right: '2px',
+                              backgroundColor: '#28a745',
+                              color: 'white',
+                              fontSize: '9px',
+                              fontWeight: 'bold',
+                              padding: '2px 4px',
+                              borderRadius: '8px',
+                              lineHeight: '1',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                              zIndex: 10,
+                              whiteSpace: 'nowrap'
+                            }}
+                            title="此邮箱通过自动注册脚本完成注册"
+                          >
+                            🤖 AUTO
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td style={{
