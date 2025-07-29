@@ -4,14 +4,19 @@
 
 import { useState, useEffect } from "react";
 import { useLoaderData, useFetcher, useRouteError, isRouteErrorResponse, useSearchParams } from "react-router";
-import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
+import type { Route } from "./+types/test-mailboxes-db";
 import { createDB } from "~/lib/db";
 import { getDatabase } from "~/config/app";
 import { testMailboxes, mailboxes } from "~/db/schema";
 import { asc, count, eq, like, sql, and, isNull } from "drizzle-orm";
 
 // 处理延长时间的action
-export async function action({ context, request }: ActionFunctionArgs) {
+export async function action({ context, request }: Route.ActionArgs) {
+  console.log('🎯 Action函数被调用！');
+  console.log('📋 请求方法:', request.method);
+  console.log('🌐 请求URL:', request.url);
+  console.log('📝 请求Headers:', Object.fromEntries(request.headers.entries()));
+
   try {
     const env = context.cloudflare.env;
     const db = createDB(getDatabase(env));
@@ -19,6 +24,12 @@ export async function action({ context, request }: ActionFunctionArgs) {
     const formData = await request.formData();
     const action = formData.get('action');
     const mailboxId = formData.get('mailboxId');
+
+    console.log('📦 FormData内容:', {
+      action: action,
+      mailboxId: mailboxId,
+      allEntries: Object.fromEntries(formData.entries())
+    });
 
     if (action === 'updateRegistrationStatus') {
       // 批量更新注册状态
@@ -43,26 +54,37 @@ export async function action({ context, request }: ActionFunctionArgs) {
     if (action === 'delete' && mailboxId) {
       // 删除邮箱
       try {
+        const mailboxIdInt = parseInt(mailboxId as string);
+
         // 首先获取测试邮箱信息
         const testMailbox = await db
           .select()
           .from(testMailboxes)
-          .where(eq(testMailboxes.id, parseInt(mailboxId as string)))
+          .where(eq(testMailboxes.id, mailboxIdInt))
           .limit(1);
 
         if (testMailbox.length === 0) {
-          return new Response(JSON.stringify({ success: false, message: '测试邮箱不存在' }), {
-            status: 404,
+          // 邮箱不存在，但这可能意味着已经被删除了
+          // 检查是否确实不存在，如果不存在则认为删除成功
+          console.log(`⚠️ 邮箱ID ${mailboxIdInt} 不存在，可能已经被删除`);
+          return new Response(JSON.stringify({
+            success: true,
+            message: '邮箱已删除（邮箱不存在或已被删除）'
+          }), {
+            status: 200, // 返回200而不是404，因为删除的目标已经达成
             headers: { 'Content-Type': 'application/json' }
           });
         }
 
         const email = testMailbox[0].email;
+        console.log(`🗑️ 开始删除邮箱: ${email} (ID: ${mailboxIdInt})`);
 
         // 从测试邮箱表删除
-        await db
+        const deleteResult = await db
           .delete(testMailboxes)
-          .where(eq(testMailboxes.id, parseInt(mailboxId as string)));
+          .where(eq(testMailboxes.id, mailboxIdInt));
+
+        console.log(`✅ 从测试邮箱表删除成功: ${email}`);
 
         // 同时从实际邮箱表删除（如果存在）
         try {
@@ -76,12 +98,19 @@ export async function action({ context, request }: ActionFunctionArgs) {
           // 不影响主要操作，继续执行
         }
 
-        return new Response(JSON.stringify({ success: true, message: `邮箱 ${email} 已成功删除` }), {
+        return new Response(JSON.stringify({
+          success: true,
+          message: `邮箱 ${email} 已成功删除`
+        }), {
+          status: 200,
           headers: { 'Content-Type': 'application/json' }
         });
       } catch (error) {
         console.error("删除邮箱失败:", error);
-        return new Response(JSON.stringify({ success: false, message: `删除邮箱失败: ${error instanceof Error ? error.message : '未知错误'}` }), {
+        return new Response(JSON.stringify({
+          success: false,
+          message: `删除邮箱失败: ${error instanceof Error ? error.message : '未知错误'}`
+        }), {
           status: 500,
           headers: { 'Content-Type': 'application/json' }
         });
@@ -131,6 +160,39 @@ export async function action({ context, request }: ActionFunctionArgs) {
       return new Response(JSON.stringify({ success: true, message: '邮箱有效期已延长7天' }), {
         headers: { 'Content-Type': 'application/json' }
       });
+    }
+
+    if (action === 'updateCopyCount' && mailboxId) {
+      // 更新复制次数
+      const copyType = formData.get('copyType') as string;
+
+      try {
+        const mailboxIdInt = parseInt(mailboxId as string);
+
+        if (copyType === 'email') {
+          // 更新邮箱复制次数
+          await db
+            .update(testMailboxes)
+            .set({ emailCopyCount: sql`${testMailboxes.emailCopyCount} + 1` })
+            .where(eq(testMailboxes.id, mailboxIdInt));
+        } else if (copyType === 'link') {
+          // 更新链接复制次数
+          await db
+            .update(testMailboxes)
+            .set({ linkCopyCount: sql`${testMailboxes.linkCopyCount} + 1` })
+            .where(eq(testMailboxes.id, mailboxIdInt));
+        }
+
+        return new Response(JSON.stringify({ success: true, message: '复制次数已更新' }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        console.error("更新复制次数失败:", error);
+        return new Response(JSON.stringify({ success: false, message: '更新复制次数失败' }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
     }
 
     if (action === 'updateField' && mailboxId) {
@@ -200,12 +262,12 @@ export async function action({ context, request }: ActionFunctionArgs) {
 }
 
 // 加载测试邮箱数据
-export async function loader({ context, request }: LoaderFunctionArgs) {
+export async function loader({ context, request }: Route.LoaderArgs) {
   try {
     const env = context.cloudflare.env;
     const db = createDB(getDatabase(env));
 
-    // 获取分页、搜索和筛选参数
+    // 获取分页、搜索、筛选和Tab参数
     const url = new URL(request.url);
     const page = parseInt(url.searchParams.get('page') || '1');
     const itemsPerPage = parseInt(url.searchParams.get('limit') || '50');
@@ -213,6 +275,9 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
     const registrationStatusFilter = decodeURIComponent(url.searchParams.get('registrationStatus') || '');
     const countFilter = decodeURIComponent(url.searchParams.get('count') || '');
     const saleStatusFilter = decodeURIComponent(url.searchParams.get('saleStatus') || '');
+    const activeTab = url.searchParams.get('tab') || 'all'; // 新增Tab参数，默认显示全部
+    const sortBy = url.searchParams.get('sortBy') || 'id'; // 新增排序参数
+    const sortOrder = url.searchParams.get('sortOrder') || 'asc'; // 新增排序方向
     const offset = (page - 1) * itemsPerPage;
 
     // 映射中文筛选值到数据库值
@@ -239,7 +304,7 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
     const mapCount = (value: string) => {
       switch (value) {
         case '125': return '125';
-        case '625': return '625';
+        case '650': return '650';
         case '未设置':
         case 'unset': return null;
         default: return null;
@@ -284,7 +349,50 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
       }
     }
 
-    // 第一步：获取分页的测试邮箱（升序排序，支持搜索和筛选）
+    // Tab分类条件
+    switch (activeTab) {
+      case 'all':
+        // Tab 0: 全部邮箱 - 不添加任何过滤条件
+        break;
+      case 'unregistered':
+        // Tab 1: 未注册且未售出/-
+        conditions.push(eq(testMailboxes.registrationStatus, 'unregistered'));
+        conditions.push(
+          sql`(${testMailboxes.saleStatus} IS NULL OR ${testMailboxes.saleStatus} = 'unsold')`
+        );
+        break;
+      case 'registered_unsold':
+        // Tab 2: 已注册未售出（包含售出状态为-的邮箱）
+        conditions.push(eq(testMailboxes.registrationStatus, 'registered'));
+        conditions.push(
+          sql`(${testMailboxes.saleStatus} IS NULL OR ${testMailboxes.saleStatus} = 'unsold')`
+        );
+        break;
+      case 'registered_sold':
+        // Tab 3: 已注册已售出
+        conditions.push(eq(testMailboxes.registrationStatus, 'registered'));
+        conditions.push(eq(testMailboxes.saleStatus, 'sold'));
+        break;
+    }
+
+    // 构建排序条件
+    const getSortColumn = (sortBy: string) => {
+      switch (sortBy) {
+        case 'email': return testMailboxes.email;
+        case 'emailCopyCount': return testMailboxes.emailCopyCount;
+        case 'linkCopyCount': return testMailboxes.linkCopyCount;
+        case 'expiresAt': return testMailboxes.expiresAt;
+        case 'registrationStatus': return testMailboxes.registrationStatus;
+        case 'saleStatus': return testMailboxes.saleStatus;
+        case 'updatedAt': return testMailboxes.updatedAt;
+        default: return testMailboxes.id;
+      }
+    };
+
+    const sortColumn = getSortColumn(sortBy);
+    const orderByClause = sortOrder === 'desc' ? sql`${sortColumn} DESC` : asc(sortColumn);
+
+    // 第一步：获取分页的测试邮箱（支持动态排序、搜索和筛选）
     let mailboxes;
     if (conditions.length > 0) {
       // 使用and()函数来组合多个条件
@@ -296,14 +404,14 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
         .select()
         .from(testMailboxes)
         .where(combinedCondition)
-        .orderBy(asc(testMailboxes.id))
+        .orderBy(orderByClause)
         .limit(itemsPerPage)
         .offset(offset);
     } else {
       mailboxes = await db
         .select()
         .from(testMailboxes)
-        .orderBy(asc(testMailboxes.id))
+        .orderBy(orderByClause)
         .limit(itemsPerPage)
         .offset(offset);
     }
@@ -356,7 +464,10 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
         count: countFilter,
         saleStatus: saleStatusFilter
       },
-      isFiltering
+      isFiltering,
+      activeTab,
+      sortBy,
+      sortOrder
     };
 
   } catch (error) {
@@ -366,7 +477,7 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
 }
 
 export default function TestMailboxesDB() {
-  const { mailboxes, totalCount, currentPage, itemsPerPage, totalPages, hasNextPage, hasPrevPage, searchQuery, isSearching, filters, isFiltering } = useLoaderData<typeof loader>();
+  const { mailboxes, totalCount, currentPage, itemsPerPage, totalPages, hasNextPage, hasPrevPage, searchQuery, isSearching, filters, isFiltering, activeTab, sortBy, sortOrder } = useLoaderData<typeof loader>();
   const fetcher = useFetcher();
   const [copiedItems, setCopiedItems] = useState<Record<string, boolean>>({});
   const [currentHost, setCurrentHost] = useState<string>('');
@@ -376,10 +487,20 @@ export default function TestMailboxesDB() {
   const [isSearchLoading, setIsSearchLoading] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; email: string } | null>(null);
 
+  // 本地状态管理复制次数，实现实时更新
+  const [localMailboxes, setLocalMailboxes] = useState(mailboxes);
+
+  // 同步服务器数据到本地状态
+  useEffect(() => {
+    setLocalMailboxes(mailboxes);
+  }, [mailboxes]);
+
   // 备注编辑状态管理
   const [editingRemark, setEditingRemark] = useState<Record<number, boolean>>({});
   const [remarkValues, setRemarkValues] = useState<Record<number, string>>({});
   const [remarkLoading, setRemarkLoading] = useState<Record<number, boolean>>({});
+
+
 
   // 搜索处理函数
   const handleSearch = (query: string) => {
@@ -460,50 +581,36 @@ export default function TestMailboxesDB() {
     setDeleteConfirm({ id, email });
   };
 
-  const confirmDelete = async () => {
+  const confirmDelete = () => {
     if (!deleteConfirm) return;
 
-    try {
-      const formData = new FormData();
-      formData.append('action', 'delete');
-      formData.append('mailboxId', deleteConfirm.id);
+    console.log('🚀 开始删除操作，邮箱ID:', deleteConfirm.id);
 
-      const response = await fetch(window.location.pathname, {
-        method: 'POST',
-        body: formData
-      });
+    const formData = new FormData();
+    formData.append('action', 'delete');
+    formData.append('mailboxId', deleteConfirm.id);
 
-      const result = await response.json();
+    console.log('📤 使用React Router fetcher发送删除请求...');
+    fetcher.submit(formData, { method: 'POST' });
 
-      if (result.success) {
-        setNotification({
-          message: result.message,
-          type: 'success'
-        });
-        setTimeout(() => setNotification(null), 3000);
-        // 刷新页面
-        window.location.reload();
-      } else {
-        setNotification({
-          message: result.message || '删除失败',
-          type: 'error'
-        });
-        setTimeout(() => setNotification(null), 3000);
-      }
-    } catch (error) {
-      setNotification({
-        message: '删除操作失败',
-        type: 'error'
-      });
-      setTimeout(() => setNotification(null), 3000);
-    } finally {
-      setDeleteConfirm(null);
-    }
+    console.log('🏁 删除操作完成，清理确认对话框');
+    setDeleteConfirm(null);
   };
 
-  // 更新字段
+
+
+  // 更新字段 - 立即保存数据并更新本地显示
   const updateField = async (mailboxId: number, fieldName: string, fieldValue: string) => {
     try {
+      // 立即更新本地状态
+      setLocalMailboxes(prev =>
+        prev.map(mailbox =>
+          mailbox.id === mailboxId
+            ? { ...mailbox, [fieldName]: fieldValue }
+            : mailbox
+        )
+      );
+
       const formData = new FormData();
       formData.append('mailboxId', mailboxId.toString());
       formData.append('fieldName', fieldName);
@@ -516,22 +623,15 @@ export default function TestMailboxesDB() {
 
       const result = await response.json();
 
-      if (result.success) {
-        // 刷新页面以显示更新
-        window.location.reload();
-      } else {
-        setNotification({
-          message: result.message || '更新失败',
-          type: 'error'
-        });
-        setTimeout(() => setNotification(null), 3000);
+      if (!result.success) {
+        // 如果更新失败，恢复原始状态
+        setLocalMailboxes(mailboxes);
+        console.error('更新失败:', result.message);
       }
     } catch (error) {
-      setNotification({
-        message: '更新操作失败',
-        type: 'error'
-      });
-      setTimeout(() => setNotification(null), 3000);
+      console.error('更新字段失败:', error);
+      // 恢复原始状态
+      setLocalMailboxes(mailboxes);
     }
   };
 
@@ -599,12 +699,21 @@ export default function TestMailboxesDB() {
   // 处理fetcher响应
   useEffect(() => {
     if (fetcher.data && fetcher.state === 'idle') {
+      console.log('📥 Fetcher响应数据:', fetcher.data);
       setNotification({
         message: fetcher.data.message,
         type: fetcher.data.success ? 'success' : 'error'
       });
       // 3秒后自动隐藏通知
       setTimeout(() => setNotification(null), 3000);
+
+      // 如果删除成功，刷新页面
+      if (fetcher.data.success) {
+        console.log('✅ 删除成功，1.5秒后刷新页面');
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      }
     }
   }, [fetcher.data, fetcher.state]);
 
@@ -613,6 +722,66 @@ export default function TestMailboxesDB() {
     const newSearchParams = new URLSearchParams(searchParams);
     newSearchParams.set('page', page.toString());
     setSearchParams(newSearchParams);
+  };
+
+  // Tab切换函数
+  const switchTab = (tab: string) => {
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.set('tab', tab);
+    newSearchParams.set('page', '1'); // 切换Tab时重置到第一页
+    setSearchParams(newSearchParams);
+  };
+
+  // 排序函数
+  const handleSort = (column: string) => {
+    const newSearchParams = new URLSearchParams(searchParams);
+    const currentSortBy = searchParams.get('sortBy');
+    const currentSortOrder = searchParams.get('sortOrder') || 'asc';
+
+    if (currentSortBy === column) {
+      // 如果点击的是当前排序列，切换排序方向
+      newSearchParams.set('sortOrder', currentSortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      // 如果点击的是新列，设置为升序
+      newSearchParams.set('sortBy', column);
+      newSearchParams.set('sortOrder', 'asc');
+    }
+    newSearchParams.set('page', '1'); // 排序时重置到第一页
+    setSearchParams(newSearchParams);
+  };
+
+  // 邮箱地址复制函数
+  const copyEmailAddress = async (email: string, mailboxId: number) => {
+    try {
+      await navigator.clipboard.writeText(email);
+      setCopiedItems(prev => ({ ...prev, [`email-${mailboxId}`]: true }));
+
+      // 立即更新本地状态中的邮箱复制次数
+      setLocalMailboxes(prev =>
+        prev.map(mailbox =>
+          mailbox.id === mailboxId
+            ? { ...mailbox, emailCopyCount: mailbox.emailCopyCount + 1 }
+            : mailbox
+        )
+      );
+
+      // 更新邮箱复制次数到服务器
+      const formData = new FormData();
+      formData.append('action', 'updateCopyCount');
+      formData.append('mailboxId', mailboxId.toString());
+      formData.append('copyType', 'email');
+
+      fetch(window.location.pathname, {
+        method: 'POST',
+        body: formData
+      });
+
+      setTimeout(() => {
+        setCopiedItems(prev => ({ ...prev, [`email-${mailboxId}`]: false }));
+      }, 2000);
+    } catch (err) {
+      console.error('复制失败:', err);
+    }
   };
   
   // 复制到剪贴板
@@ -798,13 +967,12 @@ export default function TestMailboxesDB() {
                     const result = await response.json();
 
                     if (result.success) {
-                      alert('更新成功！');
                       window.location.reload();
                     } else {
-                      alert('更新失败：' + result.message);
+                      console.error('更新失败：' + result.message);
                     }
                   } catch (error) {
-                    alert('更新失败：' + error);
+                    console.error('更新失败：' + error);
                   }
                 }
               }}
@@ -823,114 +991,81 @@ export default function TestMailboxesDB() {
           </div>
         </div>
 
-        {/* 搜索框 */}
+        {/* Tab导航 */}
         <div style={{
           marginTop: '20px',
           display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          flexWrap: 'wrap'
+          justifyContent: 'center',
+          gap: '8px',
+          marginBottom: '20px'
         }}>
-          <div style={{
-            position: 'relative',
-            flex: '1',
-            minWidth: '300px',
-            maxWidth: '400px'
-          }}>
-            <input
-              type="text"
-              placeholder="搜索邮箱地址..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleSearch(searchInput);
-                }
-                if (e.key === 'Escape') {
-                  clearSearch();
-                }
-              }}
-              style={{
-                width: '100%',
-                padding: '10px 40px 10px 12px',
-                border: '1px solid #ddd',
-                borderRadius: '6px',
-                fontSize: '14px',
-                outline: 'none',
-                transition: 'border-color 0.2s',
-                backgroundColor: 'white'
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = '#007bff';
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = '#ddd';
-              }}
-            />
-
-            {/* 搜索图标 */}
-            <div style={{
-              position: 'absolute',
-              right: '12px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}>
-              {searchInput && (
-                <button
-                  onClick={clearSearch}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    padding: '2px',
-                    color: '#6c757d',
-                    fontSize: '16px'
-                  }}
-                  title="清除搜索"
-                >
-                  ×
-                </button>
-              )}
-              <button
-                onClick={() => handleSearch(searchInput)}
-                disabled={isSearchLoading}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: isSearchLoading ? 'not-allowed' : 'pointer',
-                  padding: '2px',
-                  color: '#6c757d'
-                }}
-                title="搜索"
-              >
-                {isSearchLoading ? '⏳' : '🔍'}
-              </button>
-            </div>
-          </div>
-
-          {/* 搜索结果统计 */}
-          {isSearching && (
-            <div style={{
+          <button
+            onClick={() => switchTab('all')}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: activeTab === 'all' ? '#007bff' : '#f8f9fa',
+              color: activeTab === 'all' ? 'white' : '#495057',
+              border: `1px solid ${activeTab === 'all' ? '#007bff' : '#e9ecef'}`,
+              borderRadius: '8px',
+              cursor: 'pointer',
               fontSize: '14px',
-              color: '#6c757d',
-              padding: '8px 12px',
-              backgroundColor: '#f8f9fa',
-              borderRadius: '4px',
-              border: '1px solid #e9ecef'
-            }}>
-              {totalCount > 0 ? (
-                <>搜索 "<strong>{searchQuery}</strong>" 找到 <strong>{totalCount}</strong> 个结果</>
-              ) : (
-                <>未找到匹配 "<strong>{searchQuery}</strong>" 的邮箱地址</>
-              )}
-            </div>
-          )}
+              fontWeight: '500',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            全部
+          </button>
+          <button
+            onClick={() => switchTab('unregistered')}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: activeTab === 'unregistered' ? '#007bff' : '#f8f9fa',
+              color: activeTab === 'unregistered' ? 'white' : '#495057',
+              border: `1px solid ${activeTab === 'unregistered' ? '#007bff' : '#e9ecef'}`,
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '500',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            未注册邮箱
+          </button>
+          <button
+            onClick={() => switchTab('registered_unsold')}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: activeTab === 'registered_unsold' ? '#007bff' : '#f8f9fa',
+              color: activeTab === 'registered_unsold' ? 'white' : '#495057',
+              border: `1px solid ${activeTab === 'registered_unsold' ? '#007bff' : '#e9ecef'}`,
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '500',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            已注册未售出
+          </button>
+          <button
+            onClick={() => switchTab('registered_sold')}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: activeTab === 'registered_sold' ? '#007bff' : '#f8f9fa',
+              color: activeTab === 'registered_sold' ? 'white' : '#495057',
+              border: `1px solid ${activeTab === 'registered_sold' ? '#007bff' : '#e9ecef'}`,
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '500',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            已注册已售出
+          </button>
         </div>
 
-        {/* 筛选器区域 */}
+        {/* 搜索和筛选区域 - 单行布局 */}
         <div style={{
           marginTop: '20px',
           padding: '16px',
@@ -938,19 +1073,90 @@ export default function TestMailboxesDB() {
           borderRadius: '8px',
           border: '1px solid #e9ecef'
         }}>
-          <h3 style={{
-            margin: '0 0 12px 0',
-            fontSize: '16px',
-            fontWeight: '600',
-            color: '#495057'
-          }}>筛选条件</h3>
-
           <div style={{
             display: 'flex',
-            gap: '16px',
+            gap: '12px',
             alignItems: 'center',
             flexWrap: 'wrap'
           }}>
+            {/* 搜索框 */}
+            <div style={{
+              position: 'relative',
+              minWidth: '250px',
+              maxWidth: '300px'
+            }}>
+              <input
+                type="text"
+                placeholder="搜索邮箱地址..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSearch(searchInput);
+                  }
+                  if (e.key === 'Escape') {
+                    clearSearch();
+                  }
+                }}
+                style={{
+                  width: '100%',
+                  padding: '8px 35px 8px 12px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  outline: 'none',
+                  backgroundColor: 'white'
+                }}
+              />
+              <div style={{
+                position: 'absolute',
+                right: '8px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '2px'
+              }}>
+                {searchInput && (
+                  <button
+                    onClick={clearSearch}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: '2px',
+                      color: '#6c757d',
+                      fontSize: '14px'
+                    }}
+                    title="清除搜索"
+                  >
+                    ×
+                  </button>
+                )}
+                <button
+                  onClick={() => handleSearch(searchInput)}
+                  disabled={isSearchLoading}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: isSearchLoading ? 'not-allowed' : 'pointer',
+                    padding: '2px',
+                    color: '#6c757d',
+                    fontSize: '14px'
+                  }}
+                  title="搜索"
+                >
+                  {isSearchLoading ? '⏳' : '🔍'}
+                </button>
+              </div>
+            </div>
+
+            {/* 分隔线 */}
+            <div style={{
+              width: '1px',
+              height: '24px',
+              backgroundColor: '#dee2e6'
+            }}></div>
             {/* 注册状态筛选 */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <label style={{ fontSize: '14px', color: '#495057', minWidth: '80px' }}>注册状态:</label>
@@ -988,7 +1194,7 @@ export default function TestMailboxesDB() {
               >
                 <option value="全部">全部</option>
                 <option value="125">125</option>
-                <option value="625">625</option>
+                <option value="650">650</option>
                 <option value="未设置">未设置</option>
               </select>
             </div>
@@ -1013,6 +1219,15 @@ export default function TestMailboxesDB() {
                 <option value="未设置">未设置</option>
               </select>
             </div>
+
+            {/* 分隔线 */}
+            {(isFiltering || isSearching) && (
+              <div style={{
+                width: '1px',
+                height: '24px',
+                backgroundColor: '#dee2e6'
+              }}></div>
+            )}
 
             {/* 清除筛选按钮 */}
             {isFiltering && (
@@ -1141,32 +1356,57 @@ export default function TestMailboxesDB() {
                   borderRight: '1px solid #e9ecef',
                   width: '8%',
                   fontSize: '14px',
-                  fontWeight: '600'
-                }}>ID</th>
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  userSelect: 'none'
+                }} onClick={() => handleSort('id')}>
+                  ID {sortBy === 'id' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </th>
                 <th style={{
                   padding: '12px',
                   textAlign: 'center',
                   borderBottom: '1px solid #e9ecef',
                   borderRight: '1px solid #e9ecef',
-                  width: '25%',
+                  width: '22%',
                   fontSize: '14px',
-                  fontWeight: '600'
-                }}>邮箱地址</th>
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  userSelect: 'none'
+                }} onClick={() => handleSort('email')}>
+                  邮箱地址 {sortBy === 'email' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </th>
                 <th style={{
                   padding: '12px',
                   textAlign: 'center',
                   borderBottom: '1px solid #e9ecef',
                   borderRight: '1px solid #e9ecef',
-                  width: '12%',
+                  width: '8%',
                   fontSize: '14px',
-                  fontWeight: '600'
-                }}>复制次数</th>
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  userSelect: 'none'
+                }} onClick={() => handleSort('emailCopyCount')}>
+                  邮箱复制 {sortBy === 'emailCopyCount' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </th>
                 <th style={{
                   padding: '12px',
                   textAlign: 'center',
                   borderBottom: '1px solid #e9ecef',
                   borderRight: '1px solid #e9ecef',
-                  width: '15%',
+                  width: '8%',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  userSelect: 'none'
+                }} onClick={() => handleSort('linkCopyCount')}>
+                  链接复制 {sortBy === 'linkCopyCount' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </th>
+                <th style={{
+                  padding: '12px',
+                  textAlign: 'center',
+                  borderBottom: '1px solid #e9ecef',
+                  borderRight: '1px solid #e9ecef',
+                  width: '10%',
                   fontSize: '14px',
                   fontWeight: '600'
                 }}>过期时间</th>
@@ -1175,7 +1415,7 @@ export default function TestMailboxesDB() {
                   textAlign: 'center',
                   borderBottom: '1px solid #e9ecef',
                   borderRight: '1px solid #e9ecef',
-                  width: '10%',
+                  width: '6%',
                   fontSize: '14px',
                   fontWeight: '600'
                 }}>备注</th>
@@ -1193,7 +1433,7 @@ export default function TestMailboxesDB() {
                   textAlign: 'center',
                   borderBottom: '1px solid #e9ecef',
                   borderRight: '1px solid #e9ecef',
-                  width: '6%',
+                  width: '9%',
                   fontSize: '14px',
                   fontWeight: '600'
                 }}>次数</th>
@@ -1202,7 +1442,7 @@ export default function TestMailboxesDB() {
                   textAlign: 'center',
                   borderBottom: '1px solid #e9ecef',
                   borderRight: '1px solid #e9ecef',
-                  width: '8%',
+                  width: '12%',
                   fontSize: '14px',
                   fontWeight: '600'
                 }}>售出状态</th>
@@ -1226,21 +1466,23 @@ export default function TestMailboxesDB() {
               </tr>
             </thead>
             <tbody>
-              {mailboxes.map((mailbox) => {
+              {localMailboxes.map((mailbox) => {
                 const emailKey = `${mailbox.id}-email`;
                 const linkKey = `${mailbox.id}-link`;
                 // 使用状态中的域名，避免SSR不一致问题
                 const verifyLink = currentHost
                   ? mailbox.directLink.replace('app.aug.qzz.io', currentHost)
                   : mailbox.directLink;
-                
+
                 // 格式化过期时间
                 const expiresAt = mailbox.expiresAt ? new Date(mailbox.expiresAt) : null;
                 const isExpired = expiresAt && expiresAt < new Date();
                 const timeLeft = expiresAt ? Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
 
                 return (
-                  <tr key={mailbox.id} style={{ borderBottom: '1px solid #f8f9fa' }}>
+                  <tr key={mailbox.id} style={{
+                    borderBottom: '1px solid #f8f9fa'
+                  }}>
                     <td style={{
                       padding: '12px',
                       textAlign: 'center',
@@ -1252,23 +1494,43 @@ export default function TestMailboxesDB() {
                       padding: '12px',
                       textAlign: 'center',
                       borderRight: '1px solid #e9ecef',
-                      width: '25%'
+                      width: '22%'
                     }}>
-                      <div className="email-cell" style={{
-                        fontFamily: 'monospace',
-                        fontSize: '13px',
-                        wordBreak: 'break-all',
-                        lineHeight: '1.4',
-                        color: '#495057'
-                      }}>
-                        {mailbox.email}
+                      <div
+                        className="email-cell"
+                        style={{
+                          fontFamily: 'monospace',
+                          fontSize: '13px',
+                          wordBreak: 'break-all',
+                          lineHeight: '1.4',
+                          color: '#007bff',
+                          cursor: 'pointer',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          transition: 'background-color 0.2s ease',
+                          backgroundColor: copiedItems[`email-${mailbox.id}`] ? '#d4edda' : 'transparent'
+                        }}
+                        onClick={() => copyEmailAddress(mailbox.email, mailbox.id)}
+                        onMouseEnter={(e) => {
+                          if (!copiedItems[`email-${mailbox.id}`]) {
+                            e.currentTarget.style.backgroundColor = '#f8f9fa';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!copiedItems[`email-${mailbox.id}`]) {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }
+                        }}
+                        title="点击复制邮箱地址"
+                      >
+                        {copiedItems[`email-${mailbox.id}`] ? '✓ 已复制' : mailbox.email}
                       </div>
                     </td>
                     <td style={{
                       padding: '12px',
                       textAlign: 'center',
                       borderRight: '1px solid #e9ecef',
-                      width: '12%'
+                      width: '8%'
                     }}>
                       <span style={{
                         backgroundColor: '#e3f2fd',
@@ -1280,7 +1542,26 @@ export default function TestMailboxesDB() {
                         display: 'inline-block',
                         minWidth: '35px'
                       }}>
-                        {mailbox.copyCount}次
+                        {mailbox.emailCopyCount || 0}次
+                      </span>
+                    </td>
+                    <td style={{
+                      padding: '12px',
+                      textAlign: 'center',
+                      borderRight: '1px solid #e9ecef',
+                      width: '8%'
+                    }}>
+                      <span style={{
+                        backgroundColor: '#f3e5f5',
+                        color: '#7b1fa2',
+                        padding: '4px 8px',
+                        borderRadius: '12px',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        display: 'inline-block',
+                        minWidth: '35px'
+                      }}>
+                        {mailbox.linkCopyCount || 0}次
                       </span>
                     </td>
                     <td style={{
@@ -1310,7 +1591,7 @@ export default function TestMailboxesDB() {
                       padding: '12px',
                       textAlign: 'center',
                       borderRight: '1px solid #e9ecef',
-                      width: '15%'
+                      width: '6%'
                     }}>
                       {editingRemark[mailbox.id] ? (
                         <div style={{ display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'center' }}>
@@ -1420,8 +1701,7 @@ export default function TestMailboxesDB() {
                       >
                         <option value="">-</option>
                         <option value="125">125</option>
-                        <option value="625">625</option>
-                        <option value="clear">清空</option>
+                        <option value="650">650</option>
                       </select>
                     </td>
 
@@ -1430,7 +1710,7 @@ export default function TestMailboxesDB() {
                       padding: '12px',
                       textAlign: 'center',
                       borderRight: '1px solid #e9ecef',
-                      width: '8%'
+                      width: '12%'
                     }}>
                       <select
                         value={mailbox.saleStatus || ''}
@@ -1448,7 +1728,6 @@ export default function TestMailboxesDB() {
                         <option value="">-</option>
                         <option value="sold">已出</option>
                         <option value="unsold">未出</option>
-                        <option value="clear">清空</option>
                       </select>
                     </td>
 
@@ -1482,31 +1761,45 @@ export default function TestMailboxesDB() {
                     }}>
                       <div className="action-buttons" style={{
                         display: 'flex',
-                        gap: '4px',
-                        flexWrap: 'wrap',
+                        gap: '6px',
+                        flexWrap: 'nowrap',
                         justifyContent: 'center',
                         alignItems: 'center'
                       }}>
                         <button
                           className="action-button"
-                          onClick={() => copyToClipboard(mailbox.email, emailKey)}
-                          style={{
-                            padding: '6px 10px',
-                            fontSize: '11px',
-                            border: '1px solid #007bff',
-                            backgroundColor: copiedItems[emailKey] ? '#28a745' : '#007bff',
-                            color: 'white',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            minWidth: '60px',
-                            whiteSpace: 'nowrap'
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(verifyLink);
+                              setCopiedItems(prev => ({ ...prev, [linkKey]: true }));
+
+                              // 立即更新本地状态中的链接复制次数
+                              setLocalMailboxes(prev =>
+                                prev.map(mb =>
+                                  mb.id === mailbox.id
+                                    ? { ...mb, linkCopyCount: mb.linkCopyCount + 1 }
+                                    : mb
+                                )
+                              );
+
+                              // 更新链接复制次数到服务器
+                              const formData = new FormData();
+                              formData.append('action', 'updateCopyCount');
+                              formData.append('mailboxId', mailbox.id.toString());
+                              formData.append('copyType', 'link');
+
+                              fetch(window.location.pathname, {
+                                method: 'POST',
+                                body: formData
+                              });
+
+                              setTimeout(() => {
+                                setCopiedItems(prev => ({ ...prev, [linkKey]: false }));
+                              }, 2000);
+                            } catch (err) {
+                              console.error('复制失败:', err);
+                            }
                           }}
-                        >
-                          {copiedItems[emailKey] ? '✓ 已复制' : '复制邮箱'}
-                        </button>
-                        <button
-                          className="action-button"
-                          onClick={() => copyToClipboard(verifyLink, linkKey)}
                           style={{
                             padding: '6px 10px',
                             fontSize: '11px',
@@ -1539,6 +1832,7 @@ export default function TestMailboxesDB() {
                         >
                           {extendingTime[mailbox.id] ? '处理中...' : '延长时间'}
                         </button>
+
                         <button
                           className="action-button"
                           onClick={() => handleDelete(mailbox.id.toString(), mailbox.email)}

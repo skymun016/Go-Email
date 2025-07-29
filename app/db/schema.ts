@@ -11,10 +11,11 @@ export const testMailboxes = sqliteTable(
 		domain: text("domain").notNull(),
 		prefix: text("prefix").notNull(),
 		directLink: text("direct_link").notNull(),
-		copyCount: integer("copy_count").notNull().default(0),
+		emailCopyCount: integer("email_copy_count").notNull().default(0), // 邮箱地址复制次数
+		linkCopyCount: integer("link_copy_count").notNull().default(0), // 邮箱链接复制次数
 		remark: text("remark"), // 备注字段，允许NULL
 		registrationStatus: text("registration_status", { enum: ["registered", "unregistered"] }).default("unregistered"),
-		count: text("count", { enum: ["125", "625"] }),
+		count: text("count", { enum: ["125", "650"] }),
 		saleStatus: text("sale_status", { enum: ["sold", "unsold"] }),
 		createdAt: integer("created_at", { mode: "timestamp" })
 			.notNull()
