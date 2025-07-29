@@ -68,6 +68,19 @@
         }
     };
 
+    // 测试 View usage 链接提取功能
+    window.testExtractViewUsageLink = function() {
+        logger.log('🧪 开始测试 View usage 链接提取功能...', 'info');
+        const extractedLink = extractViewUsageLinkFromSubscriptionPage();
+        if (extractedLink) {
+            logger.log('✅ 测试成功！提取到 View usage 链接: ' + extractedLink, 'success');
+            return extractedLink;
+        } else {
+            logger.log('❌ 测试失败！未能提取到 View usage 链接', 'error');
+            return null;
+        }
+    };
+
     // 从订阅页面提取邮箱地址
     function extractEmailFromSubscriptionPage() {
         logger.log('🔍 尝试从订阅页面提取邮箱地址...', 'info');
@@ -130,6 +143,80 @@
         return null;
     }
 
+    // 从订阅页面提取 View usage 链接
+    function extractViewUsageLinkFromSubscriptionPage() {
+        logger.log('🔍 尝试从订阅页面提取 View usage 链接...', 'info');
+
+        // 策略1: 查找包含 "View usage" 文本的链接（不区分大小写）
+        const viewUsageLinks = Array.from(document.querySelectorAll('a')).filter(link => {
+            const text = link.textContent?.trim().toLowerCase() || '';
+            return text.includes('view usage') || text === 'view usage';
+        });
+
+        if (viewUsageLinks.length > 0) {
+            const link = viewUsageLinks[0];
+            const href = link.href || link.getAttribute('href');
+            if (href) {
+                logger.log('✅ 通过文本搜索找到 View usage 链接: ' + href, 'success');
+                return href;
+            }
+        }
+
+        // 策略2: 查找所有链接，检查文本内容
+        const allLinks = Array.from(document.querySelectorAll('a'));
+        logger.log(`🔍 页面共找到 ${allLinks.length} 个链接，开始逐个检查...`, 'info');
+
+        for (let i = 0; i < allLinks.length; i++) {
+            const link = allLinks[i];
+            const text = link.textContent?.trim() || '';
+            const href = link.href || link.getAttribute('href') || '';
+
+            logger.log(`🔗 链接 ${i + 1}: 文本="${text}" 链接="${href}"`, 'info');
+
+            if (text.toLowerCase().includes('view usage') || text.toLowerCase().includes('usage')) {
+                if (href) {
+                    logger.log('✅ 通过文本匹配找到 View usage 链接: ' + href, 'success');
+                    return href;
+                }
+            }
+        }
+
+        // 策略3: 查找特定的选择器模式
+        const possibleSelectors = [
+            'a[href*="usage"]',
+            'a[href*="view"]',
+            'button[onclick*="usage"]',
+            '[data-testid*="usage"]',
+            '[data-testid*="view-usage"]',
+            '.rt-Link',
+            'a.rt-Link'
+        ];
+
+        for (const selector of possibleSelectors) {
+            try {
+                const elements = document.querySelectorAll(selector);
+                logger.log(`🔍 选择器 "${selector}" 找到 ${elements.length} 个元素`, 'info');
+
+                for (const element of elements) {
+                    const text = element.textContent?.trim().toLowerCase() || '';
+                    const href = element.href || element.getAttribute('href') || '';
+
+                    if (text.includes('view usage') || text.includes('usage')) {
+                        if (href) {
+                            logger.log('✅ 通过选择器找到 View usage 链接: ' + href, 'success');
+                            return href;
+                        }
+                    }
+                }
+            } catch (error) {
+                logger.log('⚠️ 选择器失败: ' + selector + ' - ' + error.message, 'warning');
+            }
+        }
+
+        logger.log('❌ 未能从页面提取到 View usage 链接', 'error');
+        return null;
+    }
+
     // 手动触发邮箱状态更新的函数
     window.manualUpdateEmailStatus = async function() {
         let emailToUpdate = currentGeneratedEmail;
@@ -155,9 +242,15 @@
             return false;
         }
 
+        // 尝试提取 View usage 链接
+        let viewUsageLink = null;
+        if (window.location.href.includes('/account/subscription')) {
+            viewUsageLink = extractViewUsageLinkFromSubscriptionPage();
+        }
+
         try {
             logger.log('📝 手动更新邮箱状态: ' + emailToUpdate, 'info');
-            await markEmailAsRegistered(emailToUpdate);
+            await markEmailAsRegistered(emailToUpdate, viewUsageLink);
             logger.log('✅ 邮箱状态已成功更新为已注册', 'success');
 
             // 清理localStorage中的邮箱信息
@@ -645,12 +738,18 @@
     }
 
     // 标记邮箱为已注册
-    async function markEmailAsRegistered(email) {
+    async function markEmailAsRegistered(email, viewUsageLink = null) {
         return new Promise((resolve, reject) => {
             logger.log(`📝 正在标记邮箱 ${email} 为已注册...`, 'info');
 
             const url = `${AUTOMATION_API_CONFIG.baseUrl}${AUTOMATION_API_CONFIG.endpoints.markRegistered}`;
-            const formData = `action=mark-registered&email=${encodeURIComponent(email)}`;
+            let formData = `action=mark-registered&email=${encodeURIComponent(email)}`;
+
+            // 如果提供了 viewUsageLink，添加到表单数据中
+            if (viewUsageLink) {
+                formData += `&viewUsageLink=${encodeURIComponent(viewUsageLink)}`;
+                logger.log(`🔗 包含 View usage 链接: ${viewUsageLink}`, 'info');
+            }
 
             GM_xmlhttpRequest({
                 method: "POST",
@@ -671,6 +770,9 @@
                             logger.log(`   - 使用次数: ${result.data.count}`, 'info');
                             logger.log(`   - 售出状态: ${result.data.saleStatus}`, 'info');
                             logger.log(`   - 自动注册: ${result.data.isAutoRegistered ? '是' : '否'}`, 'info');
+                            if (result.data.viewUsageLink) {
+                                logger.log(`   - View usage 链接: ${result.data.viewUsageLink}`, 'info');
+                            }
                             resolve(result);
                         } else {
                             logger.log('❌ 标记邮箱状态失败: ' + result.error, 'error');
@@ -1198,6 +1300,9 @@
                         }
                     }
 
+                    // 提取 View usage 链接
+                    const viewUsageLink = extractViewUsageLinkFromSubscriptionPage();
+
                     // 调试信息
                     logger.log('🔍 页面监控 - 邮箱状态调试:', 'info');
                     logger.log('- currentGeneratedEmail: ' + (currentGeneratedEmail || '未设置'), 'info');
@@ -1207,7 +1312,7 @@
                     // 标记邮箱为已注册
                     if (emailToUpdate) {
                         try {
-                            await markEmailAsRegistered(emailToUpdate);
+                            await markEmailAsRegistered(emailToUpdate, viewUsageLink);
                             logger.log('✅ 邮箱状态已成功更新为已注册', 'success');
 
                             // 清理localStorage中的邮箱信息
@@ -1260,6 +1365,7 @@
         logger.log('📧 邮箱系统: ' + AUTOMATION_API_CONFIG.baseUrl, 'info');
         logger.log('💡 手动命令: window.manualUpdateEmailStatus() - 手动更新邮箱状态', 'info');
         logger.log('💡 测试命令: window.testExtractEmail() - 测试邮箱提取功能', 'info');
+        logger.log('💡 测试命令: window.testExtractViewUsageLink() - 测试 View usage 链接提取功能', 'info');
 
         // 检查是否有之前保存的邮箱
         const savedEmail = localStorage.getItem('augment_current_email');
@@ -1370,6 +1476,9 @@
                     }
                 }
 
+                // 提取 View usage 链接
+                const viewUsageLink = extractViewUsageLinkFromSubscriptionPage();
+
                 // 调试信息
                 logger.log('🔍 邮箱状态调试:', 'info');
                 logger.log('- currentGeneratedEmail: ' + (currentGeneratedEmail || '未设置'), 'info');
@@ -1381,7 +1490,7 @@
                     logger.log('📝 准备更新邮箱状态为已注册...', 'info');
                     setTimeout(async () => {
                         try {
-                            await markEmailAsRegistered(emailToUpdate);
+                            await markEmailAsRegistered(emailToUpdate, viewUsageLink);
                             logger.log('✅ 邮箱状态已成功更新为已注册', 'success');
 
                             // 清理localStorage中的邮箱信息

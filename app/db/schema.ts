@@ -18,6 +18,7 @@ export const testMailboxes = sqliteTable(
 		count: text("count", { enum: ["125", "650"] }),
 		saleStatus: text("sale_status", { enum: ["sold", "unsold"] }),
 		isAutoRegistered: integer("is_auto_registered", { mode: "boolean" }).notNull().default(false), // 是否通过自动注册脚本注册
+		viewUsageLink: text("view_usage_link"), // View usage按钮的链接地址
 		createdAt: integer("created_at", { mode: "timestamp" })
 			.notNull()
 			.$defaultFn(() => new Date()),

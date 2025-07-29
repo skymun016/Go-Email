@@ -250,30 +250,41 @@ export async function action({ request, context }: ActionFunctionArgs) {
     
     switch (action) {
       case "mark-registered": {
+        // 获取可选的 viewUsageLink 参数
+        const viewUsageLink = formData.get("viewUsageLink") as string | null;
+
         // 检查邮箱是否存在
         const existingMailbox = await db
           .select({ id: testMailboxes.id })
           .from(testMailboxes)
           .where(eq(testMailboxes.email, email))
           .limit(1);
-        
+
         if (existingMailbox.length === 0) {
           return data({
             success: false,
             error: "邮箱不存在"
           }, { status: 404 });
         }
-        
+
+        // 准备更新数据
+        const updateData: any = {
+          registrationStatus: "registered",
+          count: "125",
+          saleStatus: "unsold",
+          isAutoRegistered: true,
+          updatedAt: new Date()
+        };
+
+        // 如果提供了 viewUsageLink，则添加到更新数据中
+        if (viewUsageLink) {
+          updateData.viewUsageLink = viewUsageLink;
+        }
+
         // 更新邮箱状态：已注册，次数125，未售出，标记为自动注册
         await db
           .update(testMailboxes)
-          .set({
-            registrationStatus: "registered",
-            count: "125",
-            saleStatus: "unsold",
-            isAutoRegistered: true,
-            updatedAt: new Date()
-          })
+          .set(updateData)
           .where(eq(testMailboxes.email, email));
         
         // 记录 API 使用
@@ -285,16 +296,24 @@ export async function action({ request, context }: ActionFunctionArgs) {
           request.headers.get("User-Agent") || undefined
         );
         
+        // 准备返回数据
+        const responseData: any = {
+          email: email,
+          registrationStatus: "registered",
+          count: "125",
+          saleStatus: "unsold",
+          isAutoRegistered: true
+        };
+
+        // 如果提供了 viewUsageLink，则添加到返回数据中
+        if (viewUsageLink) {
+          responseData.viewUsageLink = viewUsageLink;
+        }
+
         return data({
           success: true,
           message: "邮箱状态已更新为已注册（自动注册脚本）",
-          data: {
-            email: email,
-            registrationStatus: "registered",
-            count: "125",
-            saleStatus: "unsold",
-            isAutoRegistered: true
-          }
+          data: responseData
         });
       }
       
