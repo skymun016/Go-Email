@@ -9,6 +9,7 @@ import { createDB } from "~/lib/db";
 import { getDatabase } from "~/config/app";
 import { testMailboxes, mailboxes } from "~/db/schema";
 import { asc, count, eq, like, sql, and, isNull } from "drizzle-orm";
+import { requireAdmin } from "~/lib/auth";
 
 // 处理延长时间的action
 export async function action({ context, request }: Route.ActionArgs) {
@@ -19,6 +20,10 @@ export async function action({ context, request }: Route.ActionArgs) {
 
   try {
     const env = context.cloudflare.env;
+
+    // 验证管理员权限
+    await requireAdmin(request, env);
+
     const db = createDB(getDatabase(env));
 
     const formData = await request.formData();
@@ -265,6 +270,10 @@ export async function action({ context, request }: Route.ActionArgs) {
 export async function loader({ context, request }: Route.LoaderArgs) {
   try {
     const env = context.cloudflare.env;
+
+    // 验证管理员权限
+    await requireAdmin(request, env);
+
     const db = createDB(getDatabase(env));
 
     // 获取分页、搜索、筛选和Tab参数
