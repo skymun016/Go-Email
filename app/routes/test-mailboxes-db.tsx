@@ -220,7 +220,8 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
       switch (value) {
         case '已注册': return 'registered';
         case '未注册': return 'unregistered';
-        case '未设置': return null;
+        case '未设置':
+        case 'unset': return null;
         default: return null;
       }
     };
@@ -229,7 +230,8 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
       switch (value) {
         case '已出': return 'sold';
         case '未出': return 'unsold';
-        case '未设置': return null;
+        case '未设置':
+        case 'unset': return null;
         default: return null;
       }
     };
@@ -238,7 +240,8 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
       switch (value) {
         case '125': return '125';
         case '625': return '625';
-        case '未设置': return null;
+        case '未设置':
+        case 'unset': return null;
         default: return null;
       }
     };
@@ -424,7 +427,7 @@ export default function TestMailboxesDB() {
   const handleFilter = (filterType: string, value: string) => {
     const newSearchParams = new URLSearchParams(searchParams);
 
-    if (value && value !== 'all') {
+    if (value && value !== 'all' && value !== '全部') {
       newSearchParams.set(filterType, value);
     } else {
       newSearchParams.delete(filterType);
@@ -440,6 +443,14 @@ export default function TestMailboxesDB() {
     newSearchParams.delete('registrationStatus');
     newSearchParams.delete('count');
     newSearchParams.delete('saleStatus');
+    newSearchParams.set('page', '1');
+    setSearchParams(newSearchParams);
+  };
+
+  // 重置所有筛选和搜索
+  const resetAllFilters = () => {
+    setSearchInput('');
+    const newSearchParams = new URLSearchParams();
     newSearchParams.set('page', '1');
     setSearchParams(newSearchParams);
   };
@@ -944,7 +955,7 @@ export default function TestMailboxesDB() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <label style={{ fontSize: '14px', color: '#495057', minWidth: '80px' }}>注册状态:</label>
               <select
-                value={filters.registrationStatus || 'all'}
+                value={filters.registrationStatus || '全部'}
                 onChange={(e) => handleFilter('registrationStatus', e.target.value)}
                 style={{
                   padding: '6px 8px',
@@ -954,10 +965,10 @@ export default function TestMailboxesDB() {
                   backgroundColor: 'white'
                 }}
               >
-                <option value="all">全部</option>
+                <option value="全部">全部</option>
                 <option value="已注册">已注册</option>
                 <option value="未注册">未注册</option>
-                <option value="unset">未设置</option>
+                <option value="未设置">未设置</option>
               </select>
             </div>
 
@@ -965,7 +976,7 @@ export default function TestMailboxesDB() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <label style={{ fontSize: '14px', color: '#495057', minWidth: '50px' }}>次数:</label>
               <select
-                value={filters.count || 'all'}
+                value={filters.count || '全部'}
                 onChange={(e) => handleFilter('count', e.target.value)}
                 style={{
                   padding: '6px 8px',
@@ -975,10 +986,10 @@ export default function TestMailboxesDB() {
                   backgroundColor: 'white'
                 }}
               >
-                <option value="all">全部</option>
+                <option value="全部">全部</option>
                 <option value="125">125</option>
                 <option value="625">625</option>
-                <option value="unset">未设置</option>
+                <option value="未设置">未设置</option>
               </select>
             </div>
 
@@ -986,7 +997,7 @@ export default function TestMailboxesDB() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <label style={{ fontSize: '14px', color: '#495057', minWidth: '80px' }}>售出状态:</label>
               <select
-                value={filters.saleStatus || 'all'}
+                value={filters.saleStatus || '全部'}
                 onChange={(e) => handleFilter('saleStatus', e.target.value)}
                 style={{
                   padding: '6px 8px',
@@ -996,10 +1007,10 @@ export default function TestMailboxesDB() {
                   backgroundColor: 'white'
                 }}
               >
-                <option value="all">全部</option>
+                <option value="全部">全部</option>
                 <option value="已出">已出</option>
                 <option value="未出">未出</option>
-                <option value="unset">未设置</option>
+                <option value="未设置">未设置</option>
               </select>
             </div>
 
@@ -1014,22 +1025,96 @@ export default function TestMailboxesDB() {
                   backgroundColor: 'white',
                   color: '#dc3545',
                   borderRadius: '4px',
+                  cursor: 'pointer',
+                  marginRight: '8px'
+                }}
+              >
+                清除筛选
+              </button>
+            )}
+
+            {/* 重置所有按钮 */}
+            {(isFiltering || isSearching) && (
+              <button
+                onClick={resetAllFilters}
+                style={{
+                  padding: '6px 12px',
+                  fontSize: '14px',
+                  border: '1px solid #6c757d',
+                  backgroundColor: 'white',
+                  color: '#6c757d',
+                  borderRadius: '4px',
                   cursor: 'pointer'
                 }}
               >
-                清除所有筛选
+                重置所有
               </button>
             )}
           </div>
 
           {/* 筛选结果统计 */}
-          {isFiltering && (
+          {(isFiltering || isSearching) && (
             <div style={{
               marginTop: '12px',
               fontSize: '14px',
-              color: '#6c757d'
+              color: '#6c757d',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '16px',
+              flexWrap: 'wrap'
             }}>
-              筛选结果：找到 <strong>{totalCount}</strong> 个邮箱
+              <span>
+                {isSearching && isFiltering ? '搜索和筛选' : isSearching ? '搜索' : '筛选'}结果：
+                找到 <strong style={{ color: '#495057' }}>{totalCount}</strong> 个邮箱
+              </span>
+
+              {/* 当前筛选条件显示 */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {isSearching && (
+                  <span style={{
+                    padding: '2px 8px',
+                    backgroundColor: '#e3f2fd',
+                    color: '#1976d2',
+                    borderRadius: '12px',
+                    fontSize: '12px'
+                  }}>
+                    搜索: "{searchQuery}"
+                  </span>
+                )}
+                {filters.registrationStatus && (
+                  <span style={{
+                    padding: '2px 8px',
+                    backgroundColor: '#f3e5f5',
+                    color: '#7b1fa2',
+                    borderRadius: '12px',
+                    fontSize: '12px'
+                  }}>
+                    注册状态: {filters.registrationStatus}
+                  </span>
+                )}
+                {filters.count && (
+                  <span style={{
+                    padding: '2px 8px',
+                    backgroundColor: '#e8f5e8',
+                    color: '#388e3c',
+                    borderRadius: '12px',
+                    fontSize: '12px'
+                  }}>
+                    次数: {filters.count}
+                  </span>
+                )}
+                {filters.saleStatus && (
+                  <span style={{
+                    padding: '2px 8px',
+                    backgroundColor: '#fff3e0',
+                    color: '#f57c00',
+                    borderRadius: '12px',
+                    fontSize: '12px'
+                  }}>
+                    售出状态: {filters.saleStatus}
+                  </span>
+                )}
+              </div>
             </div>
           )}
         </div>
