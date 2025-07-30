@@ -1098,11 +1098,11 @@
         const panel = document.createElement('div');
         panel.id = 'augment-control-panel';
         panel.innerHTML = `
-            <div style="position: fixed; top: 20px; right: 20px; z-index: 10000; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; min-width: 280px;">
-                <div style="font-weight: bold; margin-bottom: 10px; font-size: 14px;">🤖 AugmentCode 助手</div>
-                <button id="auto-register-btn" style="display: none; width: 100%; padding: 8px; margin: 5px 0; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">🚀 开始自动注册</button>
-                <button id="reset-states-btn" style="width: 100%; padding: 8px; margin: 5px 0; background: #ff9800; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">🔄 重置状态</button>
-                <div id="status-display" style="margin-top: 10px; font-size: 11px; opacity: 0.9;">
+            <div style="position: fixed; top: 20px; left: 20px; z-index: 10000; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; min-width: 200px; max-width: 220px;">
+                <div style="font-weight: bold; margin-bottom: 8px; font-size: 13px;">🤖 AugmentCode 助手</div>
+                <button id="auto-register-btn" style="display: none; width: 100%; padding: 6px; margin: 4px 0; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">🚀 开始自动注册</button>
+                <button id="reset-states-btn" style="width: 100%; padding: 6px; margin: 4px 0; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">🔄 重置状态</button>
+                <div id="status-display" style="margin-top: 8px; font-size: 10px; opacity: 0.9;">
                     <div>状态: 已就绪 | 日志弹窗已启用</div>
                 </div>
             </div>
