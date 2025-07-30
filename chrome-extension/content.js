@@ -131,15 +131,46 @@
     // 暴露到全局，方便调试
     window.resetAugmentStates = resetOperationStates;
 
-    // 测试邮箱提取功能
-    window.testExtractEmail = function() {
-        logger.log('🧪 开始测试邮箱提取功能...', 'info');
-        const extractedEmail = extractEmailFromSubscriptionPage();
-        if (extractedEmail) {
-            logger.log('✅ 测试成功！提取到邮箱: ' + extractedEmail, 'success');
-            return extractedEmail;
+    // 测试邮箱获取功能（根据页面类型使用不同方法）
+    window.testExtractEmail = async function() {
+        logger.log('🧪 开始测试邮箱获取功能...', 'info');
+        logger.log('📍 当前页面URL: ' + window.location.href, 'info');
+
+        const currentUrl = window.location.href;
+        const isSubscriptionPage = currentUrl.includes('app.augmentcode.com/account/subscription');
+        const isLoginPage = currentUrl.includes('augmentcode.com') &&
+                           (currentUrl.includes('/auth/') || currentUrl.includes('/u/login/'));
+
+        if (isSubscriptionPage) {
+            // 订阅页面：从页面提取邮箱
+            logger.log('📄 检测到订阅页面，尝试从页面提取邮箱...', 'info');
+            const extractedEmail = extractEmailFromSubscriptionPage();
+            if (extractedEmail) {
+                logger.log('✅ 测试成功！从页面提取到邮箱: ' + extractedEmail, 'success');
+                return extractedEmail;
+            } else {
+                logger.log('❌ 测试失败！未能从页面提取到邮箱', 'error');
+                return null;
+            }
+        } else if (isLoginPage) {
+            // 注册页面：通过API获取邮箱
+            logger.log('🔐 检测到注册页面，尝试通过API获取邮箱...', 'info');
+            try {
+                const apiEmail = await getAvailableMailbox();
+                if (apiEmail && apiEmail.email) {
+                    logger.log('✅ 测试成功！通过API获取到邮箱: ' + apiEmail.email, 'success');
+                    return apiEmail.email;
+                } else {
+                    logger.log('❌ 测试失败！API未返回有效邮箱', 'error');
+                    return null;
+                }
+            } catch (error) {
+                logger.log('❌ 测试失败！API请求出错: ' + error.message, 'error');
+                return null;
+            }
         } else {
-            logger.log('❌ 测试失败！未能提取到邮箱', 'error');
+            logger.log('⚠️ 当前页面不是注册页面或订阅页面', 'warning');
+            logger.log('💡 请在注册页面测试API获取邮箱，或在订阅页面测试页面提取邮箱', 'info');
             return null;
         }
     };
@@ -147,15 +178,29 @@
     // 测试 View usage 链接提取功能
     window.testExtractViewUsageLink = function() {
         logger.log('🧪 开始测试 View usage 链接提取功能...', 'info');
-        const extractedLink = extractViewUsageLinkFromSubscriptionPage();
-        if (extractedLink) {
-            logger.log('✅ 测试成功！提取到 View usage 链接: ' + extractedLink, 'success');
-            return extractedLink;
+        logger.log('📍 当前页面URL: ' + window.location.href, 'info');
+
+        const currentUrl = window.location.href;
+        const isSubscriptionPage = currentUrl.includes('app.augmentcode.com/account/subscription');
+
+        if (isSubscriptionPage) {
+            logger.log('📄 检测到订阅页面，尝试提取 View usage 链接...', 'info');
+            const extractedLink = extractViewUsageLinkFromSubscriptionPage();
+            if (extractedLink) {
+                logger.log('✅ 测试成功！提取到 View usage 链接: ' + extractedLink, 'success');
+                return extractedLink;
+            } else {
+                logger.log('❌ 测试失败！未能提取到 View usage 链接', 'error');
+                return null;
+            }
         } else {
-            logger.log('❌ 测试失败！未能提取到 View usage 链接', 'error');
+            logger.log('⚠️ 当前页面不是订阅页面', 'warning');
+            logger.log('💡 请在订阅页面 (app.augmentcode.com/account/subscription) 测试此功能', 'info');
             return null;
         }
     };
+
+
 
     // 从订阅页面提取邮箱地址
     function extractEmailFromSubscriptionPage() {
