@@ -341,10 +341,19 @@
         });
     }
 
-    // 标记邮箱为已注册 - 与油猴脚本完全一致
+    // 标记邮箱为已注册 - 增强版，添加详细调试信息
     async function markEmailAsRegistered(email, viewUsageLink = null) {
         return new Promise((resolve, reject) => {
             logger.log('📝 标记邮箱为已注册: ' + email, 'info');
+
+            // 验证邮箱格式
+            const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+            if (!emailRegex.test(email)) {
+                const error = new Error('邮箱格式无效: ' + email);
+                logger.log('❌ ' + error.message, 'error');
+                reject(error);
+                return;
+            }
 
             const requestData = {
                 action: "mark-registered",
@@ -357,6 +366,8 @@
                 logger.log('🔗 包含 View usage 链接: ' + viewUsageLink, 'info');
             }
 
+            logger.log('📤 准备发送的请求数据: ' + JSON.stringify(requestData, null, 2), 'info');
+
             GM_xmlhttpRequest({
                 method: "POST",
                 url: `${AUTOMATION_API_CONFIG.baseUrl}${AUTOMATION_API_CONFIG.endpoints.markRegistered}`,
@@ -366,17 +377,26 @@
                 },
                 data: JSON.stringify(requestData),
                 onload: function(response) {
+                    logger.log('📡 收到API响应，状态码: ' + response.status, 'info');
+                    logger.log('📄 响应内容: ' + response.responseText, 'info');
+
                     try {
-                        const data = JSON.parse(response.responseText);
-                        if (data.success) {
-                            logger.log('✅ 邮箱状态更新成功', 'success');
-                            resolve(true);
+                        if (response.status >= 200 && response.status < 300) {
+                            const data = JSON.parse(response.responseText);
+                            if (data.success) {
+                                logger.log('✅ 邮箱状态更新成功', 'success');
+                                resolve(true);
+                            } else {
+                                logger.log('❌ 邮箱状态更新失败: ' + (data.error || '未知错误'), 'error');
+                                reject(new Error(data.error || '更新失败'));
+                            }
                         } else {
-                            logger.log('❌ 邮箱状态更新失败: ' + (data.error || '未知错误'), 'error');
-                            reject(new Error(data.error || '更新失败'));
+                            logger.log('❌ HTTP错误状态: ' + response.status, 'error');
+                            reject(new Error('HTTP ' + response.status + ': ' + response.responseText));
                         }
                     } catch (error) {
                         logger.log('❌ 解析更新响应失败: ' + error.message, 'error');
+                        logger.log('📄 原始响应: ' + response.responseText, 'error');
                         reject(error);
                     }
                 },
@@ -521,9 +541,11 @@
         for (const element of allElements) {
             const text = element.textContent || element.innerText || '';
             if (text.includes('@')) {
-                const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+                // 使用更精确的正则表达式提取邮箱
+                const emailMatch = text.match(/\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/);
                 if (emailMatch && emailRegex.test(emailMatch[0])) {
                     logger.log('✅ 策略2成功：通过元素文本找到邮箱: ' + emailMatch[0], 'success');
+                    logger.log('🔍 原始文本: "' + text + '"', 'info');
                     return emailMatch[0];
                 }
             }
@@ -531,9 +553,10 @@
 
         // 策略3: 从页面所有文本中提取
         const pageText = document.body.innerText || document.body.textContent || '';
-        const emailMatch = pageText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+        const emailMatch = pageText.match(/\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/);
         if (emailMatch && emailRegex.test(emailMatch[0])) {
             logger.log('✅ 策略3成功：从页面文本找到邮箱: ' + emailMatch[0], 'success');
+            logger.log('🔍 页面文本片段: "' + pageText.substring(emailMatch.index - 20, emailMatch.index + emailMatch[0].length + 20) + '"', 'info');
             return emailMatch[0];
         }
 
