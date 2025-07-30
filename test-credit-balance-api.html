@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Credit Balance API 测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .log {
+            background-color: #1e1e1e;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            max-height: 500px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin-top: 15px;
+        }
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Credit Balance API 测试</h1>
+        
+        <div class="test-section">
+            <h3>🎯 测试控制</h3>
+            <button onclick="testSingleUpdate()">测试单个邮箱更新</button>
+            <button onclick="testBatchUpdate()">测试批量更新</button>
+            <button onclick="runAllTests()">运行所有测试</button>
+            <button onclick="clearLog()">清空日志</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>📋 测试日志</h3>
+            <div id="log" class="log">等待测试开始...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://gomail.asksy.dpdns.org';
+        const API_TOKEN = '8f7e6d5c4b3a2918';
+        const TEST_EMAIL = 'karen.lewis@asksy.dpdns.org';
+
+        // 日志函数
+        function log(message, type = 'info') {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : '📝';
+            logElement.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+        }
+
+        /**
+         * 测试单个邮箱更新
+         */
+        async function testSingleUpdate() {
+            log('🧪 开始测试单个邮箱Credit Balance更新...');
+            log(`📧 测试邮箱: ${TEST_EMAIL}`);
+            
+            try {
+                const formData = new FormData();
+                formData.append('action', 'update-single');
+                formData.append('email', TEST_EMAIL);
+                
+                log('📤 发送API请求...');
+                const response = await fetch(`${API_BASE}/api/update-credit-balance`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${API_TOKEN}`
+                    },
+                    body: formData
+                });
+                
+                log(`📡 响应状态: ${response.status} ${response.statusText}`);
+                
+                const result = await response.text();
+                log(`📄 响应内容: ${result}`);
+                
+                try {
+                    const jsonResult = JSON.parse(result);
+                    if (jsonResult.success) {
+                        log('✅ 单个邮箱更新成功!', 'success');
+                        log(`📊 结果数据: ${JSON.stringify(jsonResult.data, null, 2)}`);
+                    } else {
+                        log(`❌ 单个邮箱更新失败: ${jsonResult.error}`, 'error');
+                    }
+                } catch (parseError) {
+                    log('⚠️ 响应不是JSON格式，可能是HTML错误页面', 'warning');
+                }
+                
+            } catch (error) {
+                log(`❌ 请求失败: ${error.message}`, 'error');
+            }
+        }
+
+        /**
+         * 测试批量更新
+         */
+        async function testBatchUpdate() {
+            log('🧪 开始测试批量Credit Balance更新...');
+            
+            try {
+                const formData = new FormData();
+                formData.append('action', 'update-all');
+                
+                log('📤 发送批量更新API请求...');
+                const response = await fetch(`${API_BASE}/api/cron-update-credit-balance`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${API_TOKEN}`
+                    },
+                    body: formData
+                });
+                
+                log(`📡 响应状态: ${response.status} ${response.statusText}`);
+                
+                const result = await response.text();
+                log(`📄 响应内容: ${result}`);
+                
+                try {
+                    const jsonResult = JSON.parse(result);
+                    if (jsonResult.success) {
+                        log('✅ 批量更新成功!', 'success');
+                        log(`📊 结果数据: ${JSON.stringify(jsonResult.data, null, 2)}`);
+                    } else {
+                        log(`❌ 批量更新失败: ${jsonResult.error}`, 'error');
+                    }
+                } catch (parseError) {
+                    log('⚠️ 响应不是JSON格式，可能是HTML错误页面', 'warning');
+                }
+                
+            } catch (error) {
+                log(`❌ 请求失败: ${error.message}`, 'error');
+            }
+        }
+
+        /**
+         * 运行所有测试
+         */
+        async function runAllTests() {
+            clearLog();
+            log('🚀 开始Credit Balance API完整测试...');
+            
+            // 测试单个更新
+            await testSingleUpdate();
+            log('');
+            log('='.repeat(60));
+            log('');
+            
+            // 等待一下再测试批量更新
+            log('⏳ 等待5秒后进行批量更新测试...');
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            
+            // 测试批量更新
+            await testBatchUpdate();
+            
+            log('');
+            log('🏁 所有测试完成!');
+        }
+
+        // 页面加载完成后自动开始测试
+        window.onload = function() {
+            log('📱 页面加载完成，准备开始测试');
+            log(`🌐 API地址: ${API_BASE}`);
+            log(`🔑 API Token: ${API_TOKEN.substring(0, 8)}...`);
+            log(`📧 测试邮箱: ${TEST_EMAIL}`);
+            log('');
+        };
+    </script>
+</body>
+</html>

@@ -404,6 +404,7 @@ export async function loader({ context, request }: Route.LoaderArgs) {
         case 'registrationStatus': return testMailboxes.registrationStatus;
         case 'saleStatus': return testMailboxes.saleStatus;
         case 'updatedAt': return testMailboxes.updatedAt;
+        case 'creditBalance': return testMailboxes.creditBalance;
         default: return testMailboxes.id;
       }
     };
@@ -1529,6 +1530,19 @@ export default function TestMailboxesDB() {
                   textAlign: 'center',
                   borderBottom: '1px solid #e9ecef',
                   borderRight: '1px solid #e9ecef',
+                  width: '8%',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  userSelect: 'none'
+                }} onClick={() => handleSort('creditBalance')}>
+                  Credit {sortBy === 'creditBalance' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </th>
+                <th style={{
+                  padding: '12px',
+                  textAlign: 'center',
+                  borderBottom: '1px solid #e9ecef',
+                  borderRight: '1px solid #e9ecef',
                   width: '12%',
                   fontSize: '14px',
                   fontWeight: '600'
@@ -1815,6 +1829,50 @@ export default function TestMailboxesDB() {
                         <option value="125">125</option>
                         <option value="650">650</option>
                       </select>
+                    </td>
+
+                    {/* Credit Balance列 */}
+                    <td style={{
+                      padding: '12px',
+                      textAlign: 'center',
+                      borderRight: '1px solid #e9ecef',
+                      width: '8%'
+                    }}>
+                      {mailbox.creditBalance !== null && mailbox.creditBalance !== undefined ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                          <span style={{
+                            backgroundColor: '#e8f5e8',
+                            color: '#2e7d32',
+                            padding: '3px 6px',
+                            borderRadius: '8px',
+                            fontSize: '11px',
+                            fontWeight: '600',
+                            display: 'inline-block',
+                            minWidth: '35px'
+                          }}>
+                            {mailbox.creditBalance}
+                          </span>
+                          {mailbox.creditBalanceUpdatedAt && (
+                            <span style={{
+                              fontSize: '9px',
+                              color: '#6c757d',
+                              lineHeight: '1'
+                            }}>
+                              {new Date(mailbox.creditBalanceUpdatedAt).toLocaleDateString('zh-CN', {
+                                month: 'numeric',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span style={{
+                          color: '#6c757d',
+                          fontSize: '11px'
+                        }}>-</span>
+                      )}
                     </td>
 
                     {/* 售出状态列 */}

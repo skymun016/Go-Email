@@ -186,4 +186,73 @@ export default {
 			// message.setReject("Email processing failed");
 		}
 	},
+	async scheduled(event, env, ctx) {
+		console.log('🕐 Cron trigger fired:', event.cron);
+
+		try {
+			// 获取所有有 viewUsageLink 的邮箱
+			const mailboxesResponse = await fetch(`https://${env.DOMAIN || 'gomail-app.amexiaowu.workers.dev'}/api/automation`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/x-www-form-urlencoded',
+					'User-Agent': 'Cloudflare-Workers-Cron/1.0'
+				},
+				body: 'action=get-all-mailboxes'
+			});
+
+			if (!mailboxesResponse.ok) {
+				console.error('❌ Failed to get mailboxes:', mailboxesResponse.statusText);
+				return;
+			}
+
+			const mailboxesData = await mailboxesResponse.json();
+			const mailboxes = mailboxesData.data || [];
+
+			console.log(`📧 Found ${mailboxes.length} mailboxes to update`);
+
+			// 为每个有 viewUsageLink 的邮箱更新 Credit balance
+			let successCount = 0;
+			let errorCount = 0;
+
+			for (const mailbox of mailboxes) {
+				if (mailbox.viewUsageLink) {
+					try {
+						const updateResponse = await fetch(`https://${env.DOMAIN || 'gomail-app.amexiaowu.workers.dev'}/api/automation`, {
+							method: 'POST',
+							headers: {
+								'Content-Type': 'application/x-www-form-urlencoded',
+								'User-Agent': 'Cloudflare-Workers-Cron/1.0'
+							},
+							body: `action=update-credit-balance&email=${encodeURIComponent(mailbox.email)}`
+						});
+
+						if (updateResponse.ok) {
+							const result = await updateResponse.json();
+							if (result.success) {
+								successCount++;
+								console.log(`✅ Updated ${mailbox.email}: ${result.data?.creditBalance}`);
+							} else {
+								errorCount++;
+								console.error(`❌ Failed to update ${mailbox.email}: ${result.error}`);
+							}
+						} else {
+							errorCount++;
+							console.error(`❌ HTTP error for ${mailbox.email}: ${updateResponse.status}`);
+						}
+
+						// 添加延迟避免 API 限制
+						await new Promise(resolve => setTimeout(resolve, 1000));
+					} catch (error) {
+						errorCount++;
+						console.error(`❌ Exception for ${mailbox.email}:`, error);
+					}
+				}
+			}
+
+			console.log(`📊 Cron update completed: ${successCount} success, ${errorCount} errors`);
+
+		} catch (error) {
+			console.error('❌ Cron任务异常:', error);
+		}
+	},
 } satisfies ExportedHandler<Env>;

@@ -232,179 +232,24 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
 export async function action({ request, context }: ActionFunctionArgs) {
   try {
     const env = context.cloudflare.env;
-
-    // 检查是否是 Cron 任务
-    const userAgent = request.headers.get("User-Agent") || "";
-    const isCronTask = userAgent.includes("Cloudflare-Workers-Cron");
-
-    // 验证 API Token（Cron 任务除外）
-    let apiToken = null;
-    if (!isCronTask) {
-      apiToken = await requireApiToken(request, env);
-    }
-
+    
+    // 验证 API Token
+    const apiToken = await requireApiToken(request, env);
+    
     const db = createDB(getDatabase(env));
     const formData = await request.formData();
     const action = formData.get("action") as string;
     const email = formData.get("email") as string;
-
+    
+    if (!email) {
+      return data({
+        success: false,
+        error: "邮箱地址不能为空"
+      }, { status: 400 });
+    }
+    
     switch (action) {
-      case "get-all-mailboxes": {
-        // 获取所有邮箱（用于 Cron 任务）
-        const allMailboxes = await db
-          .select({
-            id: testMailboxes.id,
-            email: testMailboxes.email,
-            viewUsageLink: testMailboxes.viewUsageLink,
-            creditBalance: testMailboxes.creditBalance,
-            creditBalanceUpdatedAt: testMailboxes.creditBalanceUpdatedAt
-          })
-          .from(testMailboxes)
-          .orderBy(testMailboxes.id);
-
-        return data({
-          success: true,
-          data: allMailboxes,
-          count: allMailboxes.length
-        });
-      }
-
-      case "update-credit-balance": {
-        // 更新单个邮箱的Credit balance
-        const email = formData.get("email") as string;
-        const viewUsageLink = formData.get("viewUsageLink") as string;
-
-        if (!email && !viewUsageLink) {
-          return data({
-            success: false,
-            error: "缺少 email 或 viewUsageLink 参数"
-          }, { status: 400 });
-        }
-
-        try {
-          // 首先查找邮箱记录
-          let mailboxRecord;
-          if (email) {
-            const result = await db
-              .select()
-              .from(testMailboxes)
-              .where(eq(testMailboxes.email, email))
-              .limit(1);
-            mailboxRecord = result[0];
-          } else if (viewUsageLink) {
-            const result = await db
-              .select()
-              .from(testMailboxes)
-              .where(eq(testMailboxes.viewUsageLink, viewUsageLink))
-              .limit(1);
-            mailboxRecord = result[0];
-          }
-
-          if (!mailboxRecord) {
-            return data({
-              success: false,
-              error: "未找到匹配的邮箱记录"
-            }, { status: 404 });
-          }
-
-          if (!mailboxRecord.viewUsageLink) {
-            return data({
-              success: false,
-              error: "邮箱记录缺少 viewUsageLink"
-            }, { status: 400 });
-          }
-
-          // 从 viewUsageLink 中提取必要的参数
-          const url = new URL(mailboxRecord.viewUsageLink);
-          const token = url.searchParams.get('token');
-
-          if (!token) {
-            return data({
-              success: false,
-              error: "无效的 viewUsageLink，缺少 token"
-            }, { status: 400 });
-          }
-
-          // 调用 Orb API 获取 customer_id
-          const customerResponse = await fetch(`https://portal.withorb.com/api/v1/customer_from_link?token=${token}`, {
-            headers: {
-              'Accept': 'application/json',
-              'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
-            }
-          });
-
-          if (!customerResponse.ok) {
-            return data({
-              success: false,
-              error: `获取客户信息失败: ${customerResponse.status}`
-            }, { status: 500 });
-          }
-
-          const customerData = await customerResponse.json() as any;
-          const customerId = customerData.customer?.id;
-
-          if (!customerId) {
-            return data({
-              success: false,
-              error: "无法获取客户ID"
-            }, { status: 500 });
-          }
-
-          // 调用 Orb API 获取 Credit balance
-          const ledgerResponse = await fetch(`https://portal.withorb.com/api/v1/customers/${customerId}/ledger_summary?pricing_unit_id=jWTJo9ptbapMWkvg&token=${token}`, {
-            headers: {
-              'Accept': 'application/json',
-              'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
-            }
-          });
-
-          if (!ledgerResponse.ok) {
-            return data({
-              success: false,
-              error: `获取Credit balance失败: ${ledgerResponse.status}`
-            }, { status: 500 });
-          }
-
-          const ledgerData = await ledgerResponse.json() as any;
-          const creditBalance = parseFloat(ledgerData.credits_balance || "0");
-
-          // 更新数据库中的Credit balance
-          const result = await db
-            .update(testMailboxes)
-            .set({
-              creditBalance: Math.round(creditBalance),
-              creditBalanceUpdatedAt: new Date()
-            })
-            .where(eq(testMailboxes.email, mailboxRecord.email))
-            .returning({ id: testMailboxes.id, email: testMailboxes.email });
-
-          return data({
-            success: true,
-            message: "Credit balance更新成功",
-            data: {
-              email: result[0].email,
-              creditBalance: Math.round(creditBalance),
-              updatedAt: new Date().toISOString()
-            }
-          });
-
-        } catch (error) {
-          console.error("更新Credit balance错误:", error);
-          return data({
-            success: false,
-            error: "更新Credit balance时发生错误"
-          }, { status: 500 });
-        }
-      }
-
       case "mark-registered": {
-        if (!email) {
-          return data({
-            success: false,
-            error: "邮箱地址不能为空"
-          }, { status: 400 });
-        }
-
         // 获取可选的 viewUsageLink 参数
         const viewUsageLink = formData.get("viewUsageLink") as string | null;
         console.log("🔗 API接收到的 viewUsageLink:", viewUsageLink);
@@ -443,16 +288,14 @@ export async function action({ request, context }: ActionFunctionArgs) {
           .set(updateData)
           .where(eq(testMailboxes.email, email));
         
-        // 记录 API 使用（仅非 Cron 任务）
-        if (apiToken) {
-          await useApiToken(
-            db,
-            apiToken.id,
-            email,
-            request.headers.get("CF-Connecting-IP") || undefined,
-            request.headers.get("User-Agent") || undefined
-          );
-        }
+        // 记录 API 使用
+        await useApiToken(
+          db,
+          apiToken.id,
+          email,
+          request.headers.get("CF-Connecting-IP") || undefined,
+          request.headers.get("User-Agent") || undefined
+        );
         
         // 准备返回数据
         const responseData: any = {

@@ -19,6 +19,10 @@ export const testMailboxes = sqliteTable(
 		saleStatus: text("sale_status", { enum: ["sold", "unsold"] }),
 		isAutoRegistered: integer("is_auto_registered", { mode: "boolean" }).notNull().default(false), // 是否通过自动注册脚本注册
 		viewUsageLink: text("view_usage_link"), // View usage按钮的链接地址
+		creditBalance: integer("credit_balance"), // Credit balance数值
+		creditBalanceUpdatedAt: integer("credit_balance_updated_at", { mode: "timestamp" }), // Credit balance最后更新时间
+		creditBalance: integer("credit_balance"), // Credit balance数值
+		creditBalanceUpdatedAt: integer("credit_balance_updated_at", { mode: "timestamp" }), // Credit balance最后更新时间
 		createdAt: integer("created_at", { mode: "timestamp" })
 			.notNull()
 			.$defaultFn(() => new Date()),
