@@ -964,11 +964,14 @@
 
     // 主初始化函数 - 增强版，在所有页面显示日志弹窗
     async function initializeScript() {
-        // 首先创建日志弹窗，在所有页面都显示
-        createLogPopup();
+        try {
+            // 首先创建日志弹窗，在所有页面都显示
+            createLogPopup();
 
-        logger.log('🚀 AugmentCode 自动注册助手已启动 (Chrome插件版)', 'info');
-        logger.log('📍 当前页面: ' + window.location.href, 'info');
+            logger.log('🚀 AugmentCode 自动注册助手已启动 (Chrome插件版)', 'info');
+            logger.log('📍 当前页面: ' + window.location.href, 'info');
+            logger.log('📄 页面标题: ' + document.title, 'info');
+            logger.log('🔧 DOM状态: ' + document.readyState, 'info');
 
         // 检查是否有之前保存的邮箱
         const savedEmail = await GM_getValue('augment_current_email');
@@ -1026,15 +1029,25 @@
                 logger.log('❓ 未识别的页面类型', 'warning');
             }
         }, 2000);
+
+        } catch (error) {
+            console.error('❌ 初始化失败:', error);
+            // 即使出错也要创建日志弹窗
+            try {
+                createLogPopup();
+                logger.log('❌ 初始化失败: ' + error.message, 'error');
+            } catch (e) {
+                console.error('❌ 创建日志弹窗也失败:', e);
+            }
+        }
     }
 
-    // 页面加载完成后初始化 - 与油猴脚本完全一致
+    // 页面加载完成后初始化 - 修复版，确保日志弹窗先创建
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initializeScript);
     } else {
+        // 立即初始化
         initializeScript();
     }
-
-    logger.log('🚀 AugmentCode 自动注册助手已加载 (Chrome插件版)', 'success');
 
 })();

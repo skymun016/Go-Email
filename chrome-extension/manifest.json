@@ -39,7 +39,10 @@
   "web_accessible_resources": [
     {
       "resources": ["content-direct.js"],
-      "matches": ["https://*.augmentcode.com/*"]
+      "matches": [
+        "https://*.augmentcode.com/*",
+        "https://app.augmentcode.com/*"
+      ]
     }
   ]
 }
