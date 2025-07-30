@@ -54,6 +54,7 @@ export default [
 	route("/admin/emails/:id", "routes/admin.emails.$id.tsx"),
 	route("/admin/tokens", "routes/admin.tokens.tsx"),
 	route("/admin/settings", "routes/admin.settings.tsx"),
+	route("/admin/telegram-global", "routes/admin.telegram-global.tsx"),
 	route("/admin/logout", "routes/admin.logout.ts"),
 
 	// 外部API路由

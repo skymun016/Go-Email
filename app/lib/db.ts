@@ -19,6 +19,12 @@ import {
 	type NewUser,
 	type UserMailbox,
 	type NewUserMailbox,
+	type GlobalTelegramConfig,
+	type NewGlobalTelegramConfig,
+	type TelegramPushConfig,
+	type NewTelegramPushConfig,
+	type PushLog,
+	type NewPushLog,
 	attachments,
 	emails,
 	mailboxes,
@@ -27,6 +33,9 @@ import {
 	admins,
 	users,
 	userMailboxes,
+	globalTelegramConfigs,
+	telegramPushConfigs,
+	pushLogs,
 } from "~/db/schema";
 import { APP_CONFIG } from "~/config/app";
 
@@ -48,7 +57,10 @@ export function createDB(database?: D1Database) {
 				tokenUsageLogs,
 				admins,
 				users,
-				userMailboxes
+				userMailboxes,
+				globalTelegramConfigs,
+				telegramPushConfigs,
+				pushLogs
 			}
 		});
 	} catch (error) {

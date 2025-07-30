@@ -297,6 +297,82 @@ export type NewUser = typeof users.$inferInsert;
 export type UserMailbox = typeof userMailboxes.$inferSelect;
 export type NewUserMailbox = typeof userMailboxes.$inferInsert;
 
+// Telegram 推送配置表
+export const telegramPushConfigs = sqliteTable(
+	"telegram_push_configs",
+	{
+		id: text("id").primaryKey(),
+		mailboxId: text("mailbox_id").notNull().references(() => mailboxes.id, { onDelete: "cascade" }),
+		botToken: text("bot_token").notNull(),
+		chatId: text("chat_id").notNull(),
+		enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+		createdAt: integer("created_at", { mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+		updatedAt: integer("updated_at", { mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date())
+			.$onUpdateFn(() => new Date()),
+	},
+	(table) => [
+		index("idx_telegram_push_configs_mailbox_id").on(table.mailboxId),
+	],
+);
+
+// 推送日志表 - 记录推送历史
+export const pushLogs = sqliteTable(
+	"push_logs",
+	{
+		id: text("id").primaryKey(),
+		mailboxId: text("mailbox_id").notNull().references(() => mailboxes.id, { onDelete: "cascade" }),
+		emailId: text("email_id").notNull().references(() => emails.id, { onDelete: "cascade" }),
+		pushType: text("push_type", { enum: ["telegram"] }).notNull(),
+		status: text("status", { enum: ["success", "failed", "pending"] }).notNull(),
+		errorMessage: text("error_message"),
+		createdAt: integer("created_at", { mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+	},
+	(table) => [
+		index("idx_push_logs_mailbox_id").on(table.mailboxId),
+		index("idx_push_logs_email_id").on(table.emailId),
+		index("idx_push_logs_status").on(table.status),
+	],
+);
+
+// 全局 Telegram 推送配置表 - 超管配置系统级推送
+export const globalTelegramConfigs = sqliteTable("global_telegram_configs", {
+	id: text("id").primaryKey(),
+	botToken: text("bot_token").notNull(),
+	chatId: text("chat_id").notNull(),
+	enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+	createdAt: integer("created_at", { mode: "timestamp" })
+		.notNull()
+		.$defaultFn(() => new Date()),
+	updatedAt: integer("updated_at", { mode: "timestamp" })
+		.notNull()
+		.$defaultFn(() => new Date()),
+});
+
+// 关系定义
+export const telegramPushConfigsRelations = relations(telegramPushConfigs, ({ one }) => ({
+	mailbox: one(mailboxes, {
+		fields: [telegramPushConfigs.mailboxId],
+		references: [mailboxes.id],
+	}),
+}));
+
+export const pushLogsRelations = relations(pushLogs, ({ one }) => ({
+	mailbox: one(mailboxes, {
+		fields: [pushLogs.mailboxId],
+		references: [mailboxes.id],
+	}),
+	email: one(emails, {
+		fields: [pushLogs.emailId],
+		references: [emails.id],
+	}),
+}));
+
 // 导出类型
 export type Mailbox = typeof mailboxes.$inferSelect;
 export type NewMailbox = typeof mailboxes.$inferInsert;
@@ -306,3 +382,12 @@ export type NewEmail = typeof emails.$inferInsert;
 
 export type Attachment = typeof attachments.$inferSelect;
 export type NewAttachment = typeof attachments.$inferInsert;
+
+export type TelegramPushConfig = typeof telegramPushConfigs.$inferSelect;
+export type NewTelegramPushConfig = typeof telegramPushConfigs.$inferInsert;
+
+export type PushLog = typeof pushLogs.$inferSelect;
+export type NewPushLog = typeof pushLogs.$inferInsert;
+
+export type GlobalTelegramConfig = typeof globalTelegramConfigs.$inferSelect;
+export type NewGlobalTelegramConfig = typeof globalTelegramConfigs.$inferInsert;

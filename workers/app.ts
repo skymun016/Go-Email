@@ -7,6 +7,14 @@ import {
 	storeEmail,
 } from "../app/lib/db";
 import { getDatabase, getR2Bucket, APP_CONFIG } from "../app/config/app";
+import { getTelegramConfig, logPushAttempt } from "../app/lib/telegram-config-db";
+import { createTelegramPushService, type EmailNotification } from "../app/lib/telegram-push";
+import type { Mailbox } from "../app/db/schema";
+import {
+  getGlobalTelegramConfig,
+  sendGlobalEmailNotification,
+  logGlobalPushAttempt
+} from "../app/lib/global-telegram-db";
 
 declare module "react-router" {
 	export interface AppLoadContext {
@@ -180,6 +188,12 @@ export default {
 			);
 
 			console.log(`✅ Email stored successfully with ID: ${emailId}`);
+
+			// 异步发送 Telegram 推送通知（不阻塞邮件处理）
+			ctx.waitUntil(sendTelegramNotification(db, mailbox, parsedEmail, emailId));
+
+			// 异步发送全局 Telegram 推送通知（超管配置）
+			ctx.waitUntil(sendGlobalTelegramNotification(db, mailbox, parsedEmail, emailId));
 		} catch (error) {
 			console.error("❌ Error processing email:", error);
 			// 在生产环境中，你可能想要拒绝邮件或发送到错误队列
@@ -256,3 +270,123 @@ export default {
 		}
 	},
 } satisfies ExportedHandler<Env>;
+
+/**
+ * 发送 Telegram 推送通知
+ */
+async function sendTelegramNotification(
+	db: ReturnType<typeof createDB>,
+	mailbox: Mailbox,
+	parsedEmail: any,
+	emailId: string
+): Promise<void> {
+	try {
+		console.log(`📱 检查邮箱 ${mailbox.email} 的 Telegram 推送配置...`);
+
+		// 获取推送配置
+		const config = await getTelegramConfig(db, mailbox.id);
+
+		if (!config || !config.enabled) {
+			console.log(`ℹ️ 邮箱 ${mailbox.email} 未启用 Telegram 推送`);
+			return;
+		}
+
+		console.log(`📤 开始发送 Telegram 推送通知...`);
+
+		// 记录推送尝试
+		await logPushAttempt(db, mailbox.id, emailId, "pending");
+
+		// 创建推送服务
+		const pushService = createTelegramPushService({
+			botToken: config.botToken,
+			chatId: config.chatId,
+			enabled: config.enabled,
+		});
+
+		// 构建邮件通知数据
+		const notification: EmailNotification = {
+			from: parsedEmail.from?.address || "未知发件人",
+			to: mailbox.email,
+			subject: parsedEmail.subject || "无主题",
+			textContent: parsedEmail.text,
+			receivedAt: new Date(),
+			mailboxEmail: mailbox.email,
+		};
+
+		// 发送推送
+		const success = await pushService.sendEmailNotification(notification);
+
+		if (success) {
+			await logPushAttempt(db, mailbox.id, emailId, "success");
+			console.log(`✅ Telegram 推送发送成功: ${mailbox.email}`);
+		} else {
+			await logPushAttempt(db, mailbox.id, emailId, "failed", "推送服务返回失败");
+			console.log(`❌ Telegram 推送发送失败: ${mailbox.email}`);
+		}
+	} catch (error) {
+		const errorMessage = error instanceof Error ? error.message : "未知错误";
+		console.error(`❌ Telegram 推送异常 (${mailbox.email}):`, error);
+
+		try {
+			await logPushAttempt(db, mailbox.id, emailId, "failed", errorMessage);
+		} catch (logError) {
+			console.error("记录推送日志失败:", logError);
+		}
+	}
+}
+
+/**
+ * 发送全局 Telegram 推送通知（超管配置）
+ */
+async function sendGlobalTelegramNotification(
+	db: ReturnType<typeof createDB>,
+	mailbox: Mailbox,
+	parsedEmail: any,
+	emailId: string
+): Promise<void> {
+	try {
+		console.log(`🌐 检查全局 Telegram 推送配置...`);
+
+		// 获取全局推送配置
+		const config = await getGlobalTelegramConfig(db);
+
+		if (!config || !config.enabled) {
+			console.log(`ℹ️ 全局 Telegram 推送未启用`);
+			return;
+		}
+
+		console.log(`📤 开始发送全局 Telegram 推送通知...`);
+
+		// 记录推送尝试
+		await logGlobalPushAttempt(db, mailbox.id, emailId, "pending");
+
+		// 构建邮件数据
+		const emailData = {
+			fromAddress: parsedEmail.from?.address || "未知发件人",
+			subject: parsedEmail.subject || "无主题",
+			textContent: parsedEmail.text,
+			htmlContent: parsedEmail.html,
+			receivedAt: new Date(),
+		};
+
+		// 发送全局推送
+		const result = await sendGlobalEmailNotification(config, emailData, mailbox);
+
+		if (result.success) {
+			await logGlobalPushAttempt(db, mailbox.id, emailId, "success");
+			console.log(`✅ 全局 Telegram 推送发送成功: ${mailbox.email}`);
+		} else {
+			await logGlobalPushAttempt(db, mailbox.id, emailId, "failed", result.error);
+			console.log(`❌ 全局 Telegram 推送发送失败: ${mailbox.email} - ${result.error}`);
+		}
+	} catch (error) {
+		const errorMessage = error instanceof Error ? error.message : "未知错误";
+		console.error(`❌ 全局 Telegram 推送异常 (${mailbox.email}):`, error);
+
+		try {
+			await logGlobalPushAttempt(db, mailbox.id, emailId, "failed", errorMessage);
+		} catch (logError) {
+			console.error("记录全局推送日志失败:", logError);
+		}
+	}
+}

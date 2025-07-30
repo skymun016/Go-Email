@@ -11,6 +11,7 @@ import { getDatabase } from "~/config/app";
 import { ArrowLeft, Mail, Clock, Paperclip, Eye, EyeOff } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
+import { TelegramPushSettings } from "~/components/TelegramPushSettings";
 
 export async function loader({ params, request, context }: Route.LoaderArgs) {
   const { id: mailboxId } = params;
@@ -136,23 +137,26 @@ export default function MailboxDetail({ loaderData }: Route.ComponentProps) {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {emails.length === 0 ? (
-          // 空状态
-          <div className="bg-white rounded-lg shadow text-center py-12">
-            <Mail className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-4 text-lg font-medium text-gray-900">
-              还没有收到邮件
-            </h3>
-            <p className="mt-2 text-sm text-gray-500">
-              发送邮件到 {mailbox.email} 即可在这里查看
-            </p>
-            <div className="mt-6">
-              <Button asChild>
-                <Link to="/dashboard">返回邮箱管理</Link>
-              </Button>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* 左侧：邮件列表 */}
+          <div className="lg:col-span-2">
+            {emails.length === 0 ? (
+            // 空状态
+            <div className="bg-white rounded-lg shadow text-center py-12">
+              <Mail className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-4 text-lg font-medium text-gray-900">
+                还没有收到邮件
+              </h3>
+              <p className="mt-2 text-sm text-gray-500">
+                发送邮件到 {mailbox.email} 即可在这里查看
+              </p>
+              <div className="mt-6">
+                <Button asChild>
+                  <Link to="/dashboard">返回邮箱管理</Link>
+                </Button>
+              </div>
             </div>
-          </div>
-        ) : (
+          ) : (
           // 邮件列表
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
@@ -230,7 +234,17 @@ export default function MailboxDetail({ loaderData }: Route.ComponentProps) {
               ))}
             </div>
           </div>
-        )}
+          )}
+          </div>
+
+          {/* 右侧：设置面板 */}
+          <div className="lg:col-span-1">
+            <div className="space-y-6">
+              {/* Telegram 推送设置 */}
+              <TelegramPushSettings mailboxEmail={mailbox.email} />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
