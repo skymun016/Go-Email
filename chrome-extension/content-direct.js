@@ -25,6 +25,7 @@
     let copyOperationCompleted = false;
     let oauthPushCompleted = false;
     let subscriptionPageProcessed = false;
+    let termsPageProcessed = false; // 防止重复处理服务条款页面
     let currentGeneratedEmail = null;
 
     // Chrome API 包装函数 - 替换油猴API
@@ -88,6 +89,7 @@
         copyOperationCompleted = false;
         oauthPushCompleted = false;
         subscriptionPageProcessed = false;
+        termsPageProcessed = false;
         currentGeneratedEmail = null;
         GM_setValue('augment_current_email', '');
         logger.log('🔄 操作状态已重置', 'info');
@@ -668,9 +670,16 @@
         }
     }
 
-    // 处理服务条款页面 - 与油猴脚本完全一致
+    // 处理服务条款页面 - 增强版，防止重复处理
     async function handleTermsPage() {
         try {
+            // 检查是否已经处理过
+            if (termsPageProcessed) {
+                logger.log('⏭️ 服务条款页面已处理过，跳过重复执行', 'info');
+                return true;
+            }
+
+            termsPageProcessed = true;
             logger.log('📋 检测到服务条款页面，开始处理...', 'info');
 
             // 模拟阅读服务条款的时间
@@ -696,15 +705,27 @@
                 await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 500));
             }
 
-            // 查找注册按钮
+            // 查找注册按钮 - 增强调试版
             let signupBtn = null;
             const buttons = document.querySelectorAll('button');
+
+            logger.log('🔍 页面上找到 ' + buttons.length + ' 个按钮', 'info');
+
+            // 打印所有按钮的信息
+            buttons.forEach((button, index) => {
+                const text = button.textContent?.trim() || '';
+                const type = button.type || '';
+                const disabled = button.disabled;
+                logger.log(`按钮${index + 1}: "${text}" (type: ${type}, disabled: ${disabled})`, 'info');
+            });
+
             for (const button of buttons) {
                 const buttonText = button.textContent.toLowerCase();
                 if (buttonText.includes('sign up and start coding') ||
                     buttonText.includes('sign up') ||
                     buttonText.includes('start coding')) {
                     signupBtn = button;
+                    logger.log('✅ 找到匹配的注册按钮: "' + button.textContent.trim() + '"', 'success');
                     break;
                 }
             }
@@ -712,23 +733,70 @@
             // 如果没找到特定文本的按钮，尝试找submit按钮
             if (!signupBtn) {
                 signupBtn = document.querySelector('button[type="submit"]');
+                if (signupBtn) {
+                    logger.log('✅ 找到submit类型按钮: "' + signupBtn.textContent.trim() + '"', 'success');
+                }
             }
 
             if (!signupBtn) {
+                logger.log('❌ 未找到任何可用的注册按钮', 'error');
                 throw new Error('未找到注册按钮');
             }
 
+            // 检查按钮状态
+            if (signupBtn.disabled) {
+                logger.log('⚠️ 注册按钮被禁用，尝试启用...', 'warning');
+                signupBtn.disabled = false;
+            }
+
             logger.log('🚀 点击注册按钮...', 'info');
-            await simulateHumanClick(signupBtn);
+
+            // 尝试多种点击方式
+            try {
+                // 方式1: 模拟人类点击
+                await simulateHumanClick(signupBtn);
+                logger.log('✅ 模拟人类点击完成', 'info');
+            } catch (e) {
+                logger.log('⚠️ 模拟人类点击失败，尝试直接点击: ' + e.message, 'warning');
+                // 方式2: 直接点击
+                signupBtn.click();
+            }
+
+            // 方式3: 如果是表单，尝试提交表单
+            const form = signupBtn.closest('form');
+            if (form) {
+                logger.log('📝 发现表单，尝试提交...', 'info');
+                try {
+                    form.submit();
+                } catch (e) {
+                    logger.log('⚠️ 表单提交失败: ' + e.message, 'warning');
+                }
+            }
 
             // 等待页面跳转
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            logger.log('⏳ 等待页面跳转...', 'info');
+            await new Promise(resolve => setTimeout(resolve, 3000));
 
-            // 标记邮箱为已注册
-            const email = currentGeneratedEmail || await GM_getValue('augment_current_email');
-            if (email) {
-                await markEmailAsRegistered(email);
-                logger.log('🎉 注册完成！邮箱已标记为已注册: ' + email, 'success');
+            // 检查页面是否跳转
+            const newUrl = window.location.href;
+            logger.log('🔍 检查页面跳转: ' + newUrl, 'info');
+
+            if (newUrl.includes('/account/subscription')) {
+                logger.log('🎉 成功跳转到订阅页面！', 'success');
+
+                // 标记邮箱为已注册
+                const email = currentGeneratedEmail || await GM_getValue('augment_current_email');
+                if (email) {
+                    try {
+                        await markEmailAsRegistered(email);
+                        logger.log('🎉 注册完成！邮箱已标记为已注册: ' + email, 'success');
+                    } catch (apiError) {
+                        logger.log('⚠️ API调用失败，但注册流程已完成: ' + apiError.message, 'warning');
+                        // 不抛出错误，避免无限循环
+                    }
+                }
+            } else {
+                logger.log('⚠️ 页面未跳转，可能需要手动操作', 'warning');
             }
 
             return true;
