@@ -26,7 +26,7 @@
     let oauthPushCompleted = false;
     let subscriptionPageProcessed = false;
     let currentGeneratedEmail = null;
-    let isProcessingTerms = false; // 防止重复处理服务条款
+    let isProcessing = false; // 防止重复处理 - 与油猴脚本一致
 
     // Chrome 插件存储和请求包装函数
     const ChromeAPI = {
@@ -126,7 +126,7 @@
         oauthPushCompleted = false;
         subscriptionPageProcessed = false;
         currentGeneratedEmail = null;
-        isProcessingTerms = false;
+        isProcessing = false;
         logger.log('🔄 操作状态已重置', 'info');
     }
 
@@ -485,69 +485,101 @@
         setupPageChangeListener();
     }
 
-    // 检查页面类型并自动处理
+    // 检查页面类型并自动处理 - 按照油猴脚本逻辑重写
     function checkPageTypeAndAutoHandle() {
+        if (isProcessing) return; // 如果正在处理，直接返回
+
         const currentUrl = window.location.href;
         const currentPath = window.location.pathname;
+
+        // 检查是否在登录/注册页面
+        const isLoginPage = currentUrl.includes('augmentcode.com') &&
+                           (currentPath.includes('/auth/') || currentPath.includes('/u/login/'));
 
         // 检查是否在服务条款页面
         const isTermsPage = currentUrl.includes('augmentcode.com') &&
                            (currentPath.includes('/terms-accept') || currentUrl.includes('terms-accept'));
 
-        const emailInput = document.querySelector('input[name="username"]') ||
-                          document.querySelector('input[type="email"]');
-        const codeInput = document.querySelector('input[name="code"]');
-        const checkbox = document.querySelector('input[type="checkbox"]');
+        if (isLoginPage) {
+            // 查找邮箱输入框
+            const emailInput = document.querySelector('input[name="username"]') ||
+                              document.querySelector('input[type="email"]');
 
-        if (isTermsPage && checkbox && !isProcessingTerms) {
-            logger.log('📋 检测到服务条款页面', 'info');
-            isProcessingTerms = true;
-            // 显示处理按钮或自动处理
-            setTimeout(async () => {
-                logger.log('🚀 开始自动处理服务条款...', 'info');
-                const success = await handleTermsPage();
-                if (!success) {
-                    logger.log('❌ 服务条款处理失败', 'error');
+            // 查找验证码输入框
+            const codeInput = document.querySelector('input[name="code"]');
+
+            // 邮箱输入页面
+            if (emailInput && !codeInput) {
+                logger.log('📝 检测到邮箱输入页面', 'info');
+                // 这里可以显示开始按钮，但不自动处理
+            }
+
+            // 验证码输入页面
+            if (codeInput && !isProcessing) {
+                isProcessing = true;
+                logger.log('📧 检测到验证码页面，开始自动填写验证码...', 'info');
+                setTimeout(async () => {
+                    const success = await autoFillVerificationCodeIfNeeded();
+                    if (!success) {
+                        logger.log('❌ 验证码填写失败', 'error');
+                    }
+                    isProcessing = false;
+                }, 2000);
+            }
+        }
+
+        // 处理服务条款页面
+        if (isTermsPage && !isProcessing) {
+            const checkbox = document.querySelector('input[type="checkbox"]');
+            // 查找包含特定文本的按钮
+            let signupBtn = null;
+            const buttons = document.querySelectorAll('button');
+            for (const button of buttons) {
+                const buttonText = button.textContent.toLowerCase();
+                if (buttonText.includes('sign up') || buttonText.includes('start coding')) {
+                    signupBtn = button;
+                    break;
                 }
-                isProcessingTerms = false;
-            }, 2000);
-        } else if (emailInput && !codeInput) {
-            logger.log('📝 检测到邮箱输入页面', 'info');
-        } else if (codeInput) {
-            logger.log('📧 检测到验证码输入页面', 'info');
-            // 自动填写验证码（如果有保存的邮箱）
-            autoFillVerificationCodeIfNeeded();
+            }
+
+            if (!signupBtn) {
+                signupBtn = document.querySelector('button[type="submit"]');
+            }
+
+            if (checkbox && signupBtn) {
+                isProcessing = true;
+                logger.log('📋 检测到服务条款页面，开始自动处理...', 'info');
+                setTimeout(async () => {
+                    const success = await handleTermsPage();
+                    if (!success) {
+                        logger.log('❌ 服务条款处理失败', 'error');
+                    }
+                    isProcessing = false;
+                }, 1000);
+            }
         }
     }
 
-    // 设置页面变化监听器
-    let lastCheckTime = 0;
+    // 设置页面变化监听器 - 按照油猴脚本逻辑
     function setupPageChangeListener() {
-        // 监听DOM变化
-        const observer = new MutationObserver((mutations) => {
-            let shouldCheck = false;
-            mutations.forEach((mutation) => {
-                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-                    shouldCheck = true;
-                }
-            });
-
-            if (shouldCheck) {
-                const now = Date.now();
-                // 防止频繁触发，至少间隔3秒
-                if (now - lastCheckTime > 3000) {
-                    lastCheckTime = now;
-                    setTimeout(() => {
-                        checkPageTypeAndAutoHandle();
-                    }, 1000);
-                }
-            }
+        const observer = new MutationObserver(() => {
+            checkPageTypeAndAutoHandle(); // 直接调用，isProcessing标志会防止重复处理
         });
 
         observer.observe(document.body, {
             childList: true,
             subtree: true
         });
+
+        // 暴露停止函数，方便调试
+        window.stopPageObserver = () => {
+            if (observer) {
+                observer.disconnect();
+                logger.log('🛑 页面监控已停止', 'warning');
+            }
+        };
+
+        logger.log('👀 页面监控已启动', 'info');
     }
 
     // 自动填写验证码（如果需要）
