@@ -93,12 +93,102 @@
         logger.log('🔄 操作状态已重置', 'info');
     }
 
-    // 日志系统 - 与油猴脚本一致
+    // 创建日志弹窗
+    function createLogPopup() {
+        // 检查是否已存在日志弹窗
+        if (document.getElementById('augment-log-popup')) {
+            return;
+        }
+
+        const popup = document.createElement('div');
+        popup.id = 'augment-log-popup';
+        popup.innerHTML = `
+            <div style="position: fixed; bottom: 20px; left: 20px; z-index: 10001; background: rgba(0,0,0,0.9); color: #00ff00; padding: 15px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); font-family: 'Courier New', monospace; width: 400px; max-height: 300px; overflow-y: auto; font-size: 12px; border: 1px solid #333;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px;">
+                    <div style="font-weight: bold; color: #00ff00;">📋 AugmentCode 助手日志</div>
+                    <div style="display: flex; gap: 5px;">
+                        <button id="clear-log-btn" style="background: #ff4444; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 10px;">清空</button>
+                        <button id="toggle-log-btn" style="background: #4444ff; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 10px;">隐藏</button>
+                    </div>
+                </div>
+                <div id="log-content" style="white-space: pre-wrap; word-break: break-all; line-height: 1.4;"></div>
+            </div>
+        `;
+
+        document.body.appendChild(popup);
+
+        // 绑定按钮事件
+        document.getElementById('clear-log-btn').onclick = () => {
+            document.getElementById('log-content').innerHTML = '';
+        };
+
+        let isHidden = false;
+        const logContainer = popup.querySelector('div');
+        document.getElementById('toggle-log-btn').onclick = () => {
+            if (isHidden) {
+                logContainer.style.display = 'block';
+                document.getElementById('toggle-log-btn').textContent = '隐藏';
+                isHidden = false;
+            } else {
+                logContainer.style.display = 'none';
+                document.getElementById('toggle-log-btn').textContent = '显示';
+                isHidden = true;
+            }
+        };
+    }
+
+    // 添加日志到弹窗
+    function addLogToPopup(message, level = 'info') {
+        const logContent = document.getElementById('log-content');
+        if (!logContent) return;
+
+        const timestamp = new Date().toLocaleTimeString();
+        let color = '#00ff00'; // 默认绿色
+        let icon = 'ℹ️';
+
+        switch(level) {
+            case 'error':
+                color = '#ff4444';
+                icon = '❌';
+                break;
+            case 'warning':
+                color = '#ffaa00';
+                icon = '⚠️';
+                break;
+            case 'success':
+                color = '#44ff44';
+                icon = '✅';
+                break;
+            case 'info':
+                color = '#4488ff';
+                icon = 'ℹ️';
+                break;
+        }
+
+        const logEntry = document.createElement('div');
+        logEntry.style.color = color;
+        logEntry.style.marginBottom = '2px';
+        logEntry.innerHTML = `[${timestamp}] ${icon} ${message}`;
+
+        logContent.appendChild(logEntry);
+
+        // 自动滚动到底部
+        logContent.scrollTop = logContent.scrollHeight;
+
+        // 限制日志条数，避免内存占用过多
+        const logEntries = logContent.children;
+        if (logEntries.length > 100) {
+            logContent.removeChild(logEntries[0]);
+        }
+    }
+
+    // 日志系统 - 增强版，同时输出到控制台和弹窗
     const logger = {
         log: function(message, level = 'info') {
             const timestamp = new Date().toLocaleTimeString();
             const prefix = `[${timestamp}]`;
-            
+
+            // 输出到控制台
             switch(level) {
                 case 'error':
                     console.error(prefix, message);
@@ -112,6 +202,9 @@
                 default:
                     console.log(prefix, message);
             }
+
+            // 输出到弹窗
+            addLogToPopup(message, level);
         }
     };
 
@@ -827,12 +920,15 @@
         logger.log('👀 页面监控已启动', 'info');
     }
 
-    // 创建控制面板 - 与油猴脚本完全一致
+    // 创建控制面板和日志弹窗 - 增强版
     function createControlPanel() {
         // 检查是否已存在控制面板
         if (document.getElementById('augment-control-panel')) {
             return;
         }
+
+        // 创建日志弹窗
+        createLogPopup();
 
         const panel = document.createElement('div');
         panel.id = 'augment-control-panel';
@@ -842,7 +938,7 @@
                 <button id="auto-register-btn" style="display: none; width: 100%; padding: 8px; margin: 5px 0; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">🚀 开始自动注册</button>
                 <button id="reset-states-btn" style="width: 100%; padding: 8px; margin: 5px 0; background: #ff9800; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">🔄 重置状态</button>
                 <div id="status-display" style="margin-top: 10px; font-size: 11px; opacity: 0.9;">
-                    <div>状态: 已就绪</div>
+                    <div>状态: 已就绪 | 日志弹窗已启用</div>
                 </div>
             </div>
         `;
@@ -853,6 +949,7 @@
         document.getElementById('reset-states-btn').onclick = resetOperationStates;
 
         logger.log('🎛️ 控制面板已创建', 'info');
+        logger.log('📋 日志弹窗已启用，可在左下角查看实时日志', 'success');
     }
 
     // 紧急停止所有脚本活动 - 与油猴脚本完全一致
@@ -865,9 +962,13 @@
         logger.log('🚨 紧急停止：所有脚本活动已停止', 'warning');
     };
 
-    // 主初始化函数 - 与油猴脚本完全一致
+    // 主初始化函数 - 增强版，在所有页面显示日志弹窗
     async function initializeScript() {
+        // 首先创建日志弹窗，在所有页面都显示
+        createLogPopup();
+
         logger.log('🚀 AugmentCode 自动注册助手已启动 (Chrome插件版)', 'info');
+        logger.log('📍 当前页面: ' + window.location.href, 'info');
 
         // 检查是否有之前保存的邮箱
         const savedEmail = await GM_getValue('augment_current_email');
@@ -884,8 +985,11 @@
             const currentUrl = window.location.href;
             const currentPath = window.location.pathname;
 
+            logger.log('🔍 开始页面类型检测...', 'info');
+
             // 检查当前页面并执行相应逻辑
             if (currentUrl.includes('app.augmentcode.com/account/subscription')) {
+                logger.log('📄 检测到订阅页面', 'success');
                 // 订阅页面处理
                 if (!subscriptionPageProcessed) {
                     subscriptionPageProcessed = true;
@@ -911,10 +1015,15 @@
                             logger.log('❌ 处理订阅页面失败: ' + error.message, 'error');
                         }
                     }, 3000);
+                } else {
+                    logger.log('⚠️ 订阅页面已处理过，跳过重复处理', 'warning');
                 }
             } else if (currentUrl.includes('augmentcode.com')) {
+                logger.log('🏠 检测到AugmentCode主站页面', 'success');
                 // 主站页面处理
                 createControlPanel();
+            } else {
+                logger.log('❓ 未识别的页面类型', 'warning');
             }
         }, 2000);
     }
