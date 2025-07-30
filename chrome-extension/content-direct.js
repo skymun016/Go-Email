@@ -486,31 +486,54 @@
         }
     }
 
-    // 从订阅页面提取邮箱 - 与油猴脚本完全一致
+    // 从订阅页面提取邮箱 - 修复版，使用正确的DOM查询
     function extractEmailFromSubscriptionPage() {
+        logger.log('🔍 尝试从订阅页面提取邮箱地址...', 'info');
+
+        // 邮箱格式验证正则
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+        // 策略1: 使用具体的选择器
         const emailSelectors = [
             'span[data-testid="user-email"]',
             '.user-email',
-            '[data-email]',
-            'span:contains("@")',
-            'div:contains("@")'
+            '[data-email]'
         ];
 
         for (const selector of emailSelectors) {
-            const element = document.querySelector(selector);
-            if (element) {
-                const text = element.textContent || element.innerText || '';
+            try {
+                const element = document.querySelector(selector);
+                if (element) {
+                    const text = element.textContent || element.innerText || '';
+                    const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+                    if (emailMatch && emailRegex.test(emailMatch[0])) {
+                        logger.log('✅ 策略1成功：通过选择器找到邮箱: ' + emailMatch[0] + ' (选择器: ' + selector + ')', 'success');
+                        return emailMatch[0];
+                    }
+                }
+            } catch (e) {
+                logger.log('⚠️ 选择器查询失败: ' + selector + ' - ' + e.message, 'warning');
+            }
+        }
+
+        // 策略2: 查找包含@符号的元素
+        const allElements = document.querySelectorAll('span, div, p, td, th');
+        for (const element of allElements) {
+            const text = element.textContent || element.innerText || '';
+            if (text.includes('@')) {
                 const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-                if (emailMatch) {
+                if (emailMatch && emailRegex.test(emailMatch[0])) {
+                    logger.log('✅ 策略2成功：通过元素文本找到邮箱: ' + emailMatch[0], 'success');
                     return emailMatch[0];
                 }
             }
         }
 
-        // 如果没找到，尝试从页面所有文本中提取
+        // 策略3: 从页面所有文本中提取
         const pageText = document.body.innerText || document.body.textContent || '';
         const emailMatch = pageText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-        if (emailMatch) {
+        if (emailMatch && emailRegex.test(emailMatch[0])) {
+            logger.log('✅ 策略3成功：从页面文本找到邮箱: ' + emailMatch[0], 'success');
             return emailMatch[0];
         }
 
@@ -518,23 +541,53 @@
         return null;
     }
 
-    // 从订阅页面提取View usage链接 - 与油猴脚本完全一致
+    // 从订阅页面提取View usage链接 - 修复版，使用正确的DOM查询
     function extractViewUsageLinkFromSubscriptionPage() {
+        logger.log('🔍 尝试从订阅页面提取 View usage 链接...', 'info');
+
+        // 策略1: 查找包含 "View usage" 文本的链接（不区分大小写）
+        const viewUsageLinks = Array.from(document.querySelectorAll('a')).filter(link => {
+            const text = link.textContent?.trim().toLowerCase() || '';
+            return text.includes('view usage') || text === 'view usage';
+        });
+
+        if (viewUsageLinks.length > 0) {
+            const link = viewUsageLinks[0];
+            logger.log('✅ 策略1成功：找到包含"View usage"文本的链接: ' + link.href, 'success');
+            return link.href;
+        }
+
+        // 策略2: 查找href包含特定关键词的链接
         const linkSelectors = [
             'a[href*="portal.orb.live"]',
-            'a[href*="usage"]',
-            'a:contains("View usage")',
-            'a:contains("usage")'
+            'a[href*="usage"]'
         ];
 
         for (const selector of linkSelectors) {
-            const element = document.querySelector(selector);
-            if (element && element.href) {
-                return element.href;
+            try {
+                const element = document.querySelector(selector);
+                if (element && element.href) {
+                    logger.log('✅ 策略2成功：找到匹配选择器的链接: ' + element.href + ' (选择器: ' + selector + ')', 'success');
+                    return element.href;
+                }
+            } catch (e) {
+                logger.log('⚠️ 选择器查询失败: ' + selector + ' - ' + e.message, 'warning');
             }
         }
 
-        logger.log('⚠️ 未能从页面提取到View usage链接', 'warning');
+        // 策略3: 查找所有链接并打印调试信息
+        const allLinks = document.querySelectorAll('a');
+        logger.log('🔍 页面上共找到 ' + allLinks.length + ' 个链接', 'info');
+
+        allLinks.forEach((link, index) => {
+            const text = link.textContent?.trim() || '';
+            const href = link.href || '';
+            if (text.toLowerCase().includes('usage') || href.includes('usage') || href.includes('portal')) {
+                logger.log('🔗 可能相关的链接' + (index + 1) + ': "' + text + '" -> ' + href, 'info');
+            }
+        });
+
+        logger.log('❌ 未能找到View usage链接', 'error');
         return null;
     }
 
