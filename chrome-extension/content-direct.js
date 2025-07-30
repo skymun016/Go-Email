@@ -506,58 +506,62 @@
         }
     }
 
-    // 从订阅页面提取邮箱 - 修复版，使用正确的DOM查询
+    // 从订阅页面提取邮箱 - 完全按照原版油猴插件逻辑
     function extractEmailFromSubscriptionPage() {
         logger.log('🔍 尝试从订阅页面提取邮箱地址...', 'info');
 
         // 邮箱格式验证正则
         const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
-        // 策略1: 使用具体的选择器
-        const emailSelectors = [
-            'span[data-testid="user-email"]',
-            '.user-email',
-            '[data-email]'
+        // 策略1: 使用用户提供的具体选择器
+        const specificSelectors = [
+            'body > div.radix-themes > div.rt-Container.rt-r-size-4.rt-r-mx-4 > div > div.rt-Box.topnav-container > div.rt-Box.base-header-container > div > div > div.rt-Flex.rt-r-ai-center.rt-r-gap-3.base-header-right-section > span:nth-child(1)',
+            '.base-header-right-section span:first-child',
+            '.base-header-email',
+            '[data-testid="user-email"]'
         ];
 
-        for (const selector of emailSelectors) {
+        for (const selector of specificSelectors) {
             try {
                 const element = document.querySelector(selector);
-                if (element) {
-                    const text = element.textContent || element.innerText || '';
-                    const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-                    if (emailMatch && emailRegex.test(emailMatch[0])) {
-                        logger.log('✅ 策略1成功：通过选择器找到邮箱: ' + emailMatch[0] + ' (选择器: ' + selector + ')', 'success');
-                        return emailMatch[0];
+                if (element && element.textContent) {
+                    const text = element.textContent.trim();
+                    if (emailRegex.test(text)) {
+                        logger.log('✅ 通过选择器提取到邮箱: ' + text, 'success');
+                        return text;
                     }
                 }
-            } catch (e) {
-                logger.log('⚠️ 选择器查询失败: ' + selector + ' - ' + e.message, 'warning');
+            } catch (error) {
+                logger.log('⚠️ 选择器失败: ' + selector, 'warning');
             }
         }
 
-        // 策略2: 查找包含@符号的元素
+        // 策略2: 搜索所有包含邮箱格式的文本元素
         const allElements = document.querySelectorAll('span, div, p, td, th');
         for (const element of allElements) {
-            const text = element.textContent || element.innerText || '';
-            if (text.includes('@')) {
-                // 使用更精确的正则表达式提取邮箱
-                const emailMatch = text.match(/\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/);
-                if (emailMatch && emailRegex.test(emailMatch[0])) {
-                    logger.log('✅ 策略2成功：通过元素文本找到邮箱: ' + emailMatch[0], 'success');
-                    logger.log('🔍 原始文本: "' + text + '"', 'info');
-                    return emailMatch[0];
+            if (element.textContent) {
+                const text = element.textContent.trim();
+                if (emailRegex.test(text) && text.includes('@')) {
+                    logger.log('✅ 通过文本搜索提取到邮箱: ' + text, 'success');
+                    return text;
                 }
             }
         }
 
-        // 策略3: 从页面所有文本中提取
+        // 策略3: 搜索页面中所有文本内容
         const pageText = document.body.innerText || document.body.textContent || '';
-        const emailMatch = pageText.match(/\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/);
-        if (emailMatch && emailRegex.test(emailMatch[0])) {
-            logger.log('✅ 策略3成功：从页面文本找到邮箱: ' + emailMatch[0], 'success');
-            logger.log('🔍 页面文本片段: "' + pageText.substring(emailMatch.index - 20, emailMatch.index + emailMatch[0].length + 20) + '"', 'info');
-            return emailMatch[0];
+        const emailMatches = pageText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g);
+        if (emailMatches && emailMatches.length > 0) {
+            // 过滤掉常见的示例邮箱
+            const validEmails = emailMatches.filter(email =>
+                !email.includes('example.com') &&
+                !email.includes('test.com') &&
+                !email.includes('placeholder')
+            );
+            if (validEmails.length > 0) {
+                logger.log('✅ 通过正则匹配提取到邮箱: ' + validEmails[0], 'success');
+                return validEmails[0];
+            }
         }
 
         logger.log('❌ 未能从页面提取到邮箱地址', 'error');
