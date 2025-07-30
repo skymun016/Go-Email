@@ -23,7 +23,9 @@
         "https://*.augmentcode.com/*",
         "https://app.augmentcode.com/*"
       ],
-      "js": ["content-direct.js"],
+      "js": [
+        "content-direct.js"
+      ],
       "run_at": "document_end"
     }
   ],
@@ -38,11 +40,14 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["content-direct.js"],
+      "resources": [
+        "content-direct.js"
+      ],
       "matches": [
         "https://*.augmentcode.com/*",
         "https://app.augmentcode.com/*"
       ]
     }
-  ]
+  ],
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAowdARtuB89NqekmYod7wDHVJQIx3qesRuUqXe5CUG5ntiMHeuSaVuEstpaH7N+unWS2hHkIMuPrFmW3cLSX87d3d3AYyNKNyFQbBkaA9LapZOzP1lVEKAYbT5Ts4UFzsqjBXXscTG5YvJj6no9sg9iZ5CptwD/mAWWiOBPCkKT3WnpbH19JV7Tji7wum2RehTk9aRjQdOGD9ikpLTszQsFwHbpo8DnBvNRyFEfcUbc1LWuEFyo3myNvN/KzFm4uZVslOwFzmPUZ8UD1BA5JlbCmYTsDu7+3A4zJ02jr58Sbge/G736txvx9Zq3iVhIG9qd2VTbeqE+RlZUtouj0TwQIDAQAB"
 }

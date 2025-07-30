@@ -568,53 +568,70 @@
         return null;
     }
 
-    // 从订阅页面提取View usage链接 - 修复版，使用正确的DOM查询
-    function extractViewUsageLinkFromSubscriptionPage() {
+    // 从订阅页面提取View usage链接 - 带延迟和重试机制
+    async function extractViewUsageLinkFromSubscriptionPage(maxRetries = 5, delayMs = 2000) {
         logger.log('🔍 尝试从订阅页面提取 View usage 链接...', 'info');
 
-        // 策略1: 查找包含 "View usage" 文本的链接（不区分大小写）
-        const viewUsageLinks = Array.from(document.querySelectorAll('a')).filter(link => {
-            const text = link.textContent?.trim().toLowerCase() || '';
-            return text.includes('view usage') || text === 'view usage';
-        });
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            logger.log(`🔄 第 ${attempt}/${maxRetries} 次尝试提取 View usage 链接`, 'info');
 
-        if (viewUsageLinks.length > 0) {
-            const link = viewUsageLinks[0];
-            logger.log('✅ 策略1成功：找到包含"View usage"文本的链接: ' + link.href, 'success');
-            return link.href;
-        }
+            // 策略1: 查找包含 "View usage" 文本的链接（不区分大小写）
+            const viewUsageLinks = Array.from(document.querySelectorAll('a')).filter(link => {
+                const text = link.textContent?.trim().toLowerCase() || '';
+                return text.includes('view usage') || text === 'view usage';
+            });
 
-        // 策略2: 查找href包含特定关键词的链接
-        const linkSelectors = [
-            'a[href*="portal.orb.live"]',
-            'a[href*="usage"]'
-        ];
+            if (viewUsageLinks.length > 0) {
+                const link = viewUsageLinks[0];
+                logger.log('✅ 策略1成功：找到包含"View usage"文本的链接: ' + link.href, 'success');
+                return link.href;
+            }
 
-        for (const selector of linkSelectors) {
-            try {
-                const element = document.querySelector(selector);
-                if (element && element.href) {
-                    logger.log('✅ 策略2成功：找到匹配选择器的链接: ' + element.href + ' (选择器: ' + selector + ')', 'success');
-                    return element.href;
+            // 策略2: 查找href包含特定关键词的链接
+            const linkSelectors = [
+                'a[href*="portal.withorb.com"]',
+                'a[href*="portal.orb.live"]',
+                'a[href*="usage"]'
+            ];
+
+            for (const selector of linkSelectors) {
+                try {
+                    const element = document.querySelector(selector);
+                    if (element && element.href) {
+                        logger.log('✅ 策略2成功：找到匹配选择器的链接: ' + element.href + ' (选择器: ' + selector + ')', 'success');
+                        return element.href;
+                    }
+                } catch (e) {
+                    logger.log('⚠️ 选择器查询失败: ' + selector + ' - ' + e.message, 'warning');
                 }
-            } catch (e) {
-                logger.log('⚠️ 选择器查询失败: ' + selector + ' - ' + e.message, 'warning');
+            }
+
+            // 策略3: 查找所有链接并打印调试信息
+            const allLinks = document.querySelectorAll('a');
+            logger.log('🔍 页面上共找到 ' + allLinks.length + ' 个链接', 'info');
+
+            let foundRelevantLinks = false;
+            allLinks.forEach((link, index) => {
+                const text = link.textContent?.trim() || '';
+                const href = link.href || '';
+                if (text.toLowerCase().includes('usage') || href.includes('usage') || href.includes('portal') || href.includes('orb')) {
+                    logger.log('🔗 可能相关的链接' + (index + 1) + ': "' + text + '" -> ' + href, 'info');
+                    foundRelevantLinks = true;
+                }
+            });
+
+            if (!foundRelevantLinks) {
+                logger.log('🔍 未找到包含 usage/portal/orb 关键词的链接', 'info');
+            }
+
+            // 如果不是最后一次尝试，等待一段时间再重试
+            if (attempt < maxRetries) {
+                logger.log(`⏳ 等待 ${delayMs}ms 后重试...`, 'info');
+                await new Promise(resolve => setTimeout(resolve, delayMs));
             }
         }
 
-        // 策略3: 查找所有链接并打印调试信息
-        const allLinks = document.querySelectorAll('a');
-        logger.log('🔍 页面上共找到 ' + allLinks.length + ' 个链接', 'info');
-
-        allLinks.forEach((link, index) => {
-            const text = link.textContent?.trim() || '';
-            const href = link.href || '';
-            if (text.toLowerCase().includes('usage') || href.includes('usage') || href.includes('portal')) {
-                logger.log('🔗 可能相关的链接' + (index + 1) + ': "' + text + '" -> ' + href, 'info');
-            }
-        });
-
-        logger.log('❌ 未能找到View usage链接', 'error');
+        logger.log('❌ 经过 ' + maxRetries + ' 次尝试，未能找到View usage链接', 'error');
         return null;
     }
 
@@ -1015,8 +1032,8 @@
                             }
                         }
 
-                        // 提取 View usage 链接
-                        const viewUsageLink = extractViewUsageLinkFromSubscriptionPage();
+                        // 提取 View usage 链接（带延迟和重试）
+                        const viewUsageLink = await extractViewUsageLinkFromSubscriptionPage();
 
                         // 调试信息
                         logger.log('🔍 页面监控 - 邮箱状态调试:', 'info');
@@ -1149,7 +1166,7 @@
                     setTimeout(async () => {
                         try {
                             const email = extractEmailFromSubscriptionPage();
-                            const viewUsageLink = extractViewUsageLinkFromSubscriptionPage();
+                            const viewUsageLink = await extractViewUsageLinkFromSubscriptionPage();
 
                             if (email) {
                                 logger.log('📧 检测到注册成功的邮箱: ' + email, 'success');

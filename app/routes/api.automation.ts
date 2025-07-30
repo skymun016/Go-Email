@@ -244,9 +244,30 @@ export async function action({ request, context }: ActionFunctionArgs) {
     }
 
     const db = createDB(getDatabase(env));
-    const formData = await request.formData();
-    const action = formData.get("action") as string;
-    const email = formData.get("email") as string;
+
+    // 支持JSON和FormData两种请求格式
+    let action: string;
+    let email: string;
+    let requestData: any = {};
+
+    const contentType = request.headers.get("content-type") || "";
+
+    if (contentType.includes("application/json")) {
+      // 处理JSON请求
+      const jsonData = await request.json() as any;
+      action = jsonData.action;
+      email = jsonData.email;
+      requestData = jsonData;
+    } else {
+      // 处理FormData请求
+      const formData = await request.formData();
+      action = formData.get("action") as string;
+      email = formData.get("email") as string;
+      // 将FormData转换为对象
+      for (const [key, value] of formData.entries()) {
+        requestData[key] = value;
+      }
+    }
 
     switch (action) {
       case "get-all-mailboxes": {
@@ -271,8 +292,8 @@ export async function action({ request, context }: ActionFunctionArgs) {
 
       case "update-credit-balance": {
         // 更新单个邮箱的Credit balance
-        const email = formData.get("email") as string;
-        const viewUsageLink = formData.get("viewUsageLink") as string;
+        const email = requestData.email as string;
+        const viewUsageLink = requestData.viewUsageLink as string;
 
         if (!email && !viewUsageLink) {
           return data({
@@ -406,7 +427,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
         }
 
         // 获取可选的 viewUsageLink 参数
-        const viewUsageLink = formData.get("viewUsageLink") as string | null;
+        const viewUsageLink = requestData.viewUsageLink as string | null;
         console.log("🔗 API接收到的 viewUsageLink:", viewUsageLink);
 
         // 检查邮箱是否存在
@@ -484,15 +505,17 @@ export async function action({ request, context }: ActionFunctionArgs) {
     
   } catch (error) {
     console.error("自动化 API 操作错误:", error);
-    
+    console.error("错误详情:", error instanceof Error ? error.message : String(error));
+    console.error("错误堆栈:", error instanceof Error ? error.stack : "无堆栈信息");
+
     // 如果是认证错误，返回401
     if (error instanceof Response && error.status === 401) {
       return error;
     }
-    
+
     return data({
       success: false,
-      error: "服务器内部错误"
+      error: `服务器内部错误: ${error instanceof Error ? error.message : String(error)}`
     }, { status: 500 });
   }
 }
