@@ -560,26 +560,20 @@
         }
     }
 
-    // 设置页面变化监听器 - 按照油猴脚本逻辑
+    // 设置页面变化监听器 - 临时禁用，避免阻塞页面
     function setupPageChangeListener() {
-        const observer = new MutationObserver(() => {
-            checkPageTypeAndAutoHandle(); // 直接调用，isProcessing标志会防止重复处理
-        });
+        logger.log('⚠️ 页面监控暂时禁用，避免阻塞页面加载', 'warning');
 
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
+        // 暴露手动检查函数
+        window.manualCheck = () => {
+            logger.log('🔍 手动检查页面状态...', 'info');
+            checkPageTypeAndAutoHandle();
+        };
 
         // 暴露停止函数，方便调试
         window.stopPageObserver = () => {
-            if (observer) {
-                observer.disconnect();
-                logger.log('🛑 页面监控已停止', 'warning');
-            }
+            logger.log('🛑 页面监控已停止', 'warning');
         };
-
-        logger.log('👀 页面监控已启动', 'info');
     }
 
     // 自动填写验证码（如果需要）
