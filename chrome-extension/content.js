@@ -131,6 +131,41 @@
     // 暴露到全局，方便调试
     window.resetAugmentStates = resetOperationStates;
 
+    // 调试页面输入框
+    window.debugPageInputs = function() {
+        logger.log('🔍 调试当前页面的输入框...', 'info');
+        logger.log('📍 当前页面URL: ' + window.location.href, 'info');
+
+        const allInputs = document.querySelectorAll('input');
+        logger.log('📊 页面总输入框数量: ' + allInputs.length, 'info');
+
+        allInputs.forEach((input, index) => {
+            const info = {
+                index: index,
+                type: input.type,
+                name: input.name,
+                id: input.id,
+                placeholder: input.placeholder,
+                className: input.className
+            };
+            logger.log(`📝 输入框 ${index}: ` + JSON.stringify(info), 'info');
+        });
+
+        // 测试各种选择器
+        const selectors = [
+            'input[name="username"]',
+            'input[type="email"]',
+            'input[name*="email"]',
+            'input[placeholder*="email"]',
+            'input[name="code"]'
+        ];
+
+        selectors.forEach(selector => {
+            const element = document.querySelector(selector);
+            logger.log(`🎯 选择器 "${selector}": ` + (element ? '找到' : '未找到'), element ? 'success' : 'warning');
+        });
+    };
+
     // 测试API连接
     window.testAPIConnection = async function() {
         logger.log('🧪 开始测试API连接...', 'info');
@@ -342,7 +377,8 @@
         createControlPanel();
 
         // 检查是否有注册表单
-        const emailInput = document.querySelector('input[type="email"]');
+        const emailInput = document.querySelector('input[name="username"]') ||
+                          document.querySelector('input[type="email"]');
         if (emailInput) {
             logger.log('📝 检测到注册表单', 'info');
             // 可以在这里添加自动填写逻辑
@@ -957,8 +993,9 @@
     async function fillRegistrationForm(email) {
         logger.log('📝 填写注册表单...', 'info');
 
-        // 查找邮箱输入框
-        const emailInput = document.querySelector('input[type="email"]') ||
+        // 查找邮箱输入框（按照AugmentCode网站的实际结构）
+        const emailInput = document.querySelector('input[name="username"]') ||
+                          document.querySelector('input[type="email"]') ||
                           document.querySelector('input[name*="email"]') ||
                           document.querySelector('input[placeholder*="email"]');
 
