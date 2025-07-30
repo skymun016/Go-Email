@@ -131,6 +131,31 @@
     // 暴露到全局，方便调试
     window.resetAugmentStates = resetOperationStates;
 
+    // 测试API连接
+    window.testAPIConnection = async function() {
+        logger.log('🧪 开始测试API连接...', 'info');
+        try {
+            const requestUrl = `${AUTOMATION_API_CONFIG.baseUrl}${AUTOMATION_API_CONFIG.endpoints.getAvailableMailboxes}`;
+            logger.log('🔗 测试URL: ' + requestUrl, 'info');
+
+            const response = await ChromeAPI.xmlhttpRequest({
+                method: 'GET',
+                url: requestUrl,
+                headers: {
+                    'Authorization': `Bearer ${AUTOMATION_API_CONFIG.apiToken}`
+                }
+            });
+
+            logger.log('✅ API连接成功！', 'success');
+            logger.log('📥 响应数据: ' + JSON.stringify(response, null, 2), 'info');
+            return response;
+        } catch (error) {
+            logger.log('❌ API连接失败: ' + error.message, 'error');
+            logger.log('🔍 错误详情: ' + JSON.stringify(error, null, 2), 'error');
+            throw error;
+        }
+    };
+
     // 测试邮箱获取功能（根据页面类型使用不同方法）
     window.testExtractEmail = async function() {
         logger.log('🧪 开始测试邮箱获取功能...', 'info');
@@ -562,23 +587,31 @@
         logger.log('📬 正在获取可用邮箱...', 'info');
 
         try {
+            const requestUrl = `${AUTOMATION_API_CONFIG.baseUrl}${AUTOMATION_API_CONFIG.endpoints.getAvailableMailboxes}`;
+            logger.log('🔗 请求URL: ' + requestUrl, 'info');
+
             const response = await ChromeAPI.xmlhttpRequest({
                 method: 'GET',
-                url: `${AUTOMATION_API_CONFIG.baseUrl}${AUTOMATION_API_CONFIG.endpoints.getAvailableMailboxes}`,
+                url: requestUrl,
                 headers: {
                     'Authorization': `Bearer ${AUTOMATION_API_CONFIG.apiToken}`
                 }
             });
+
+            logger.log('📥 API响应: ' + JSON.stringify(response, null, 2), 'info');
 
             if (response.data && response.data.success && response.data.data && response.data.data.mailboxes && response.data.data.mailboxes.length > 0) {
                 const mailbox = response.data.data.mailboxes[0]; // 取第一个可用邮箱
                 logger.log('✅ 获取到可用邮箱: ' + mailbox.email, 'success');
                 return mailbox;
             } else {
+                logger.log('❌ API响应格式错误或无可用邮箱', 'error');
+                logger.log('📊 响应数据: ' + JSON.stringify(response.data, null, 2), 'error');
                 throw new Error(response.data?.error || '获取邮箱失败');
             }
         } catch (error) {
             logger.log('❌ 获取可用邮箱失败: ' + error.message, 'error');
+            logger.log('🔍 错误详情: ' + JSON.stringify(error, null, 2), 'error');
             throw error;
         }
     }
