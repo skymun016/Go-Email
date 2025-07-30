@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>生成插件图标</title>
+</head>
+<body>
+    <h2>AugmentCode 插件图标生成器</h2>
+    <p>运行此页面生成插件所需的图标文件</p>
+    
+    <canvas id="canvas16" width="16" height="16" style="border: 1px solid #ccc; margin: 5px;"></canvas>
+    <canvas id="canvas48" width="48" height="48" style="border: 1px solid #ccc; margin: 5px;"></canvas>
+    <canvas id="canvas128" width="128" height="128" style="border: 1px solid #ccc; margin: 5px;"></canvas>
+    
+    <br><br>
+    <button onclick="downloadIcons()">下载图标</button>
+    
+    <script>
+        function drawIcon(canvas, size) {
+            const ctx = canvas.getContext('2d');
+            
+            // 背景渐变
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#667eea');
+            gradient.addColorStop(1, '#764ba2');
+            
+            // 绘制背景
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+            
+            // 绘制圆角
+            ctx.globalCompositeOperation = 'destination-in';
+            ctx.beginPath();
+            ctx.roundRect(0, 0, size, size, size * 0.2);
+            ctx.fill();
+            ctx.globalCompositeOperation = 'source-over';
+            
+            // 绘制机器人图标
+            ctx.fillStyle = 'white';
+            const centerX = size / 2;
+            const centerY = size / 2;
+            const iconSize = size * 0.6;
+            
+            // 机器人头部
+            ctx.beginPath();
+            ctx.roundRect(centerX - iconSize/3, centerY - iconSize/3, iconSize*2/3, iconSize*2/3, iconSize/8);
+            ctx.fill();
+            
+            // 机器人眼睛
+            ctx.fillStyle = '#667eea';
+            const eyeSize = iconSize / 12;
+            ctx.beginPath();
+            ctx.arc(centerX - iconSize/6, centerY - iconSize/8, eyeSize, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.arc(centerX + iconSize/6, centerY - iconSize/8, eyeSize, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 机器人嘴巴
+            ctx.strokeStyle = '#667eea';
+            ctx.lineWidth = size / 16;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY + iconSize/12, iconSize/8, 0, Math.PI);
+            ctx.stroke();
+        }
+        
+        // 生成所有尺寸的图标
+        drawIcon(document.getElementById('canvas16'), 16);
+        drawIcon(document.getElementById('canvas48'), 48);
+        drawIcon(document.getElementById('canvas128'), 128);
+        
+        function downloadCanvas(canvas, filename) {
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+        
+        function downloadIcons() {
+            downloadCanvas(document.getElementById('canvas16'), 'icon16.png');
+            setTimeout(() => downloadCanvas(document.getElementById('canvas48'), 'icon48.png'), 100);
+            setTimeout(() => downloadCanvas(document.getElementById('canvas128'), 'icon128.png'), 200);
+        }
+    </script>
+</body>
+</html>

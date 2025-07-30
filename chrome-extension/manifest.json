@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "AugmentCode 自动注册助手",
+  "version": "1.0.0",
+  "description": "自动完成 AugmentCode 的注册流程，使用自有邮箱系统",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://*.augmentcode.com/*",
+    "https://app.augmentcode.com/*",
+    "https://gomail-app.amexiaowu.workers.dev/*",
+    "https://api.amw.qzz.io/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.augmentcode.com/*",
+        "https://app.augmentcode.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "AugmentCode 自动注册助手"
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["content.js"],
+      "matches": ["https://*.augmentcode.com/*"]
+    }
+  ]
+}
