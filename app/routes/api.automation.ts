@@ -13,6 +13,74 @@ import { requireApiToken } from "~/lib/auth";
 import { useApiToken } from "~/lib/db";
 
 /**
+ * 提取Credit balance查询逻辑为独立函数
+ * 用于在注册成功后立即查询Credit balance
+ */
+async function updateCreditBalanceForMailbox(db: any, email: string, viewUsageLink: string) {
+  try {
+    console.log(`🔄 开始为邮箱 ${email} 更新Credit balance`);
+
+    // 从 viewUsageLink 中提取必要的参数
+    const url = new URL(viewUsageLink);
+    const token = url.searchParams.get('token');
+
+    if (!token) {
+      throw new Error("无效的 viewUsageLink，缺少 token");
+    }
+
+    // 调用 Orb API 获取 customer_id
+    const customerResponse = await fetch(`https://portal.withorb.com/api/v1/customer_from_link?token=${token}`, {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+      }
+    });
+
+    if (!customerResponse.ok) {
+      throw new Error(`获取客户信息失败: ${customerResponse.status}`);
+    }
+
+    const customerData = await customerResponse.json() as any;
+    const customerId = customerData.customer?.id;
+
+    if (!customerId) {
+      throw new Error("无法获取客户ID");
+    }
+
+    // 调用 Orb API 获取 Credit balance
+    const ledgerResponse = await fetch(`https://portal.withorb.com/api/v1/customers/${customerId}/ledger_summary?pricing_unit_id=jWTJo9ptbapMWkvg&token=${token}`, {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+      }
+    });
+
+    if (!ledgerResponse.ok) {
+      throw new Error(`获取Credit balance失败: ${ledgerResponse.status}`);
+    }
+
+    const ledgerData = await ledgerResponse.json() as any;
+    const creditBalance = parseFloat(ledgerData.credits_balance || "0");
+
+    // 更新数据库中的Credit balance
+    await db
+      .update(testMailboxes)
+      .set({
+        creditBalance: Math.round(creditBalance),
+        creditBalanceUpdatedAt: new Date()
+      })
+      .where(eq(testMailboxes.email, email));
+
+    console.log(`✅ 邮箱 ${email} 的Credit balance已更新为: ${Math.round(creditBalance)}`);
+    return Math.round(creditBalance);
+
+  } catch (error) {
+    console.error(`❌ 更新邮箱 ${email} 的Credit balance失败:`, error);
+    throw error;
+  }
+}
+
+/**
  * 从邮件内容中提取验证码
  * 支持多种常见的验证码格式
  */
@@ -463,7 +531,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
           .update(testMailboxes)
           .set(updateData)
           .where(eq(testMailboxes.email, email));
-        
+
         // 记录 API 使用（仅非 Cron 任务）
         if (apiToken) {
           await useApiToken(
@@ -474,7 +542,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
             request.headers.get("User-Agent") || undefined
           );
         }
-        
+
         // 准备返回数据
         const responseData: any = {
           email: email,
@@ -484,9 +552,22 @@ export async function action({ request, context }: ActionFunctionArgs) {
           isAutoRegistered: true
         };
 
-        // 如果提供了 viewUsageLink，则添加到返回数据中
+        // 如果提供了 viewUsageLink，立即查询并更新 Credit balance
         if (viewUsageLink) {
           responseData.viewUsageLink = viewUsageLink;
+
+          try {
+            console.log(`🚀 注册成功后立即查询 Credit balance: ${email}`);
+            const creditBalance = await updateCreditBalanceForMailbox(db, email, viewUsageLink);
+            responseData.creditBalance = creditBalance;
+            responseData.creditBalanceUpdated = true;
+            console.log(`✅ 注册后立即更新 Credit balance 成功: ${email} -> ${creditBalance}`);
+          } catch (creditError) {
+            console.error(`⚠️ 注册后立即更新 Credit balance 失败: ${email}`, creditError);
+            // 不影响主要的注册流程，只记录警告
+            responseData.creditBalanceUpdated = false;
+            responseData.creditBalanceError = creditError instanceof Error ? creditError.message : String(creditError);
+          }
         }
 
         return data({
