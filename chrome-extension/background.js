@@ -37,7 +37,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 // 通用 HTTP 请求函数
 async function makeHttpRequest(config) {
-  const { url, method = 'GET', headers = {}, body, responseType = 'json' } = config;
+  const { url, method = 'GET', headers = {}, body, data, responseType = 'json' } = config;
+
+  // 兼容 data 和 body 参数
+  const requestBody = body || data;
   
   try {
     const fetchOptions = {
@@ -45,14 +48,14 @@ async function makeHttpRequest(config) {
       headers: headers
     };
     
-    if (body) {
+    if (requestBody) {
       if (method === 'POST' && headers['Content-Type'] === 'application/x-www-form-urlencoded') {
-        fetchOptions.body = body;
-      } else if (typeof body === 'object') {
-        fetchOptions.body = JSON.stringify(body);
+        fetchOptions.body = requestBody;
+      } else if (typeof requestBody === 'object') {
+        fetchOptions.body = JSON.stringify(requestBody);
         fetchOptions.headers['Content-Type'] = 'application/json';
       } else {
-        fetchOptions.body = body;
+        fetchOptions.body = requestBody;
       }
     }
     

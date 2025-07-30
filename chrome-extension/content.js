@@ -518,21 +518,19 @@
 
         try {
             const response = await ChromeAPI.xmlhttpRequest({
-                method: 'POST',
+                method: 'GET',
                 url: `${AUTOMATION_API_CONFIG.baseUrl}${AUTOMATION_API_CONFIG.endpoints.getAvailableMailboxes}`,
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
                     'Authorization': `Bearer ${AUTOMATION_API_CONFIG.apiToken}`
-                },
-                data: 'action=get-available-mailboxes'
+                }
             });
 
-            if (response.response && response.response.success && response.response.data) {
-                const mailbox = response.response.data;
+            if (response.data && response.data.success && response.data.data && response.data.data.mailboxes && response.data.data.mailboxes.length > 0) {
+                const mailbox = response.data.data.mailboxes[0]; // 取第一个可用邮箱
                 logger.log('✅ 获取到可用邮箱: ' + mailbox.email, 'success');
                 return mailbox;
             } else {
-                throw new Error(response.response?.message || '获取邮箱失败');
+                throw new Error(response.data?.error || '获取邮箱失败');
             }
         } catch (error) {
             logger.log('❌ 获取可用邮箱失败: ' + error.message, 'error');
@@ -546,25 +544,23 @@
 
         try {
             const response = await ChromeAPI.xmlhttpRequest({
-                method: 'POST',
-                url: `${AUTOMATION_API_CONFIG.baseUrl}${AUTOMATION_API_CONFIG.endpoints.getVerificationCodes}`,
+                method: 'GET',
+                url: `${AUTOMATION_API_CONFIG.baseUrl}${AUTOMATION_API_CONFIG.endpoints.getVerificationCodes}&email=${encodeURIComponent(email)}`,
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
                     'Authorization': `Bearer ${AUTOMATION_API_CONFIG.apiToken}`
-                },
-                data: `action=get-verification-codes&email=${encodeURIComponent(email)}`
+                }
             });
 
-            if (response.response && response.response.success && response.response.data) {
-                const codes = response.response.data;
-                if (codes.length > 0) {
+            if (response.data && response.data.success && response.data.data) {
+                const codes = response.data.data.verificationCodes;
+                if (codes && codes.length > 0) {
                     logger.log('✅ 获取到验证码: ' + codes[0].code, 'success');
                     return codes[0].code;
                 } else {
                     throw new Error('暂无验证码');
                 }
             } else {
-                throw new Error(response.response?.message || '获取验证码失败');
+                throw new Error(response.data?.error || '获取验证码失败');
             }
         } catch (error) {
             logger.log('❌ 获取验证码失败: ' + error.message, 'error');
@@ -592,11 +588,11 @@
                 data: requestData
             });
 
-            if (response.response && response.response.success) {
+            if (response.data && response.data.success) {
                 logger.log('✅ 邮箱状态已更新为已注册', 'success');
                 return true;
             } else {
-                throw new Error(response.response?.message || '更新状态失败');
+                throw new Error(response.data?.error || '更新状态失败');
             }
         } catch (error) {
             logger.log('❌ 标记邮箱失败: ' + error.message, 'error');
@@ -704,21 +700,19 @@
 
         try {
             const response = await ChromeAPI.xmlhttpRequest({
-                method: 'POST',
+                method: 'GET',
                 url: `${AUTOMATION_API_CONFIG.baseUrl}${AUTOMATION_API_CONFIG.endpoints.getAvailableMailboxes}`,
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
                     'Authorization': `Bearer ${AUTOMATION_API_CONFIG.apiToken}`
-                },
-                data: 'action=get-available-mailboxes'
+                }
             });
 
-            if (response.response && response.response.success && response.response.data) {
-                const mailbox = response.response.data;
+            if (response.data && response.data.success && response.data.data && response.data.data.mailboxes && response.data.data.mailboxes.length > 0) {
+                const mailbox = response.data.data.mailboxes[0]; // 取第一个可用邮箱
                 logger.log('✅ 获取到可用邮箱: ' + mailbox.email, 'success');
                 return mailbox;
             } else {
-                throw new Error(response.response?.message || '获取邮箱失败');
+                throw new Error(response.data?.error || '获取邮箱失败');
             }
         } catch (error) {
             logger.log('❌ 获取可用邮箱失败: ' + error.message, 'error');
@@ -732,25 +726,23 @@
 
         try {
             const response = await ChromeAPI.xmlhttpRequest({
-                method: 'POST',
-                url: `${AUTOMATION_API_CONFIG.baseUrl}${AUTOMATION_API_CONFIG.endpoints.getVerificationCodes}`,
+                method: 'GET',
+                url: `${AUTOMATION_API_CONFIG.baseUrl}${AUTOMATION_API_CONFIG.endpoints.getVerificationCodes}&email=${encodeURIComponent(email)}`,
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
                     'Authorization': `Bearer ${AUTOMATION_API_CONFIG.apiToken}`
-                },
-                data: `action=get-verification-codes&email=${encodeURIComponent(email)}`
+                }
             });
 
-            if (response.response && response.response.success && response.response.data) {
-                const codes = response.response.data;
-                if (codes.length > 0) {
+            if (response.data && response.data.success && response.data.data) {
+                const codes = response.data.data.verificationCodes;
+                if (codes && codes.length > 0) {
                     logger.log('✅ 获取到验证码: ' + codes[0].code, 'success');
                     return codes[0].code;
                 } else {
                     throw new Error('暂无验证码');
                 }
             } else {
-                throw new Error(response.response?.message || '获取验证码失败');
+                throw new Error(response.data?.error || '获取验证码失败');
             }
         } catch (error) {
             logger.log('❌ 获取验证码失败: ' + error.message, 'error');
@@ -778,11 +770,11 @@
                 data: requestData
             });
 
-            if (response.response && response.response.success) {
+            if (response.data && response.data.success) {
                 logger.log('✅ 邮箱状态已更新为已注册', 'success');
                 return true;
             } else {
-                throw new Error(response.response?.message || '更新状态失败');
+                throw new Error(response.data?.error || '更新状态失败');
             }
         } catch (error) {
             logger.log('❌ 标记邮箱失败: ' + error.message, 'error');

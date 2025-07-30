@@ -2,86 +2,298 @@
 <html>
 <head>
     <title>生成插件图标</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        h2 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .description {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .canvas-container {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .canvas-item {
+            text-align: center;
+        }
+        .canvas-item canvas {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .canvas-item label {
+            display: block;
+            margin-top: 8px;
+            font-size: 12px;
+            color: #666;
+            font-weight: 500;
+        }
+        .button-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #495057;
+            border: 1px solid #dee2e6;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            background: #e8f5e8;
+            border: 1px solid #c3e6c3;
+            color: #2d5a2d;
+            display: none;
+        }
+        .preview-section {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 1px solid #eee;
+        }
+        .preview-item {
+            display: inline-block;
+            margin: 10px;
+            text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+    </style>
 </head>
 <body>
-    <h2>AugmentCode 插件图标生成器</h2>
-    <p>运行此页面生成插件所需的图标文件</p>
-    
-    <canvas id="canvas16" width="16" height="16" style="border: 1px solid #ccc; margin: 5px;"></canvas>
-    <canvas id="canvas48" width="48" height="48" style="border: 1px solid #ccc; margin: 5px;"></canvas>
-    <canvas id="canvas128" width="128" height="128" style="border: 1px solid #ccc; margin: 5px;"></canvas>
-    
-    <br><br>
-    <button onclick="downloadIcons()">下载图标</button>
-    
+    <div class="container">
+        <h2>🎨 AugmentCode 插件图标生成器</h2>
+        <p class="description">自动生成 Chrome 插件所需的三种尺寸图标文件 (16x16, 48x48, 128x128)</p>
+
+        <div class="canvas-container">
+            <div class="canvas-item">
+                <canvas id="canvas16" width="16" height="16"></canvas>
+                <label>16x16 (工具栏)</label>
+            </div>
+            <div class="canvas-item">
+                <canvas id="canvas48" width="48" height="48"></canvas>
+                <label>48x48 (扩展管理)</label>
+            </div>
+            <div class="canvas-item">
+                <canvas id="canvas128" width="128" height="128"></canvas>
+                <label>128x128 (Chrome 商店)</label>
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button class="btn-primary" onclick="downloadIcons()">📥 下载所有图标</button>
+            <button class="btn-secondary" onclick="downloadSingle(16)">下载 16x16</button>
+            <button class="btn-secondary" onclick="downloadSingle(48)">下载 48x48</button>
+            <button class="btn-secondary" onclick="downloadSingle(128)">下载 128x128</button>
+            <button class="btn-secondary" onclick="regenerateIcons()">🔄 重新生成</button>
+        </div>
+
+        <div id="status" class="status"></div>
+
+        <div class="preview-section">
+            <h3>📋 使用说明</h3>
+            <ol>
+                <li>点击"下载所有图标"按钮</li>
+                <li>将下载的 PNG 文件放入 <code>chrome-extension</code> 文件夹</li>
+                <li>确保文件名为: <code>icon16.png</code>, <code>icon48.png</code>, <code>icon128.png</code></li>
+                <li>重新加载 Chrome 插件即可看到新图标</li>
+            </ol>
+        </div>
+    </div>
+
     <script>
         function drawIcon(canvas, size) {
             const ctx = canvas.getContext('2d');
-            
+            const scale = size / 128; // 基于 128px 进行缩放
+
+            // 清除画布
+            ctx.clearRect(0, 0, size, size);
+
             // 背景渐变
             const gradient = ctx.createLinearGradient(0, 0, size, size);
             gradient.addColorStop(0, '#667eea');
             gradient.addColorStop(1, '#764ba2');
-            
-            // 绘制背景
+
+            // 绘制圆角背景
             ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, size, size);
-            
-            // 绘制圆角
-            ctx.globalCompositeOperation = 'destination-in';
             ctx.beginPath();
             ctx.roundRect(0, 0, size, size, size * 0.2);
             ctx.fill();
-            ctx.globalCompositeOperation = 'source-over';
-            
-            // 绘制机器人图标
-            ctx.fillStyle = 'white';
-            const centerX = size / 2;
-            const centerY = size / 2;
-            const iconSize = size * 0.6;
-            
+
             // 机器人头部
+            const headSize = size * 0.5;
+            const headX = (size - headSize) / 2;
+            const headY = size * 0.25;
+
+            ctx.fillStyle = 'white';
             ctx.beginPath();
-            ctx.roundRect(centerX - iconSize/3, centerY - iconSize/3, iconSize*2/3, iconSize*2/3, iconSize/8);
+            ctx.roundRect(headX, headY, headSize, headSize, headSize * 0.15);
             ctx.fill();
-            
+
             // 机器人眼睛
             ctx.fillStyle = '#667eea';
-            const eyeSize = iconSize / 12;
+            const eyeSize = size * 0.06;
+            const eyeY = headY + headSize * 0.35;
+
+            // 左眼
             ctx.beginPath();
-            ctx.arc(centerX - iconSize/6, centerY - iconSize/8, eyeSize, 0, Math.PI * 2);
+            ctx.arc(headX + headSize * 0.3, eyeY, eyeSize, 0, Math.PI * 2);
             ctx.fill();
-            
+
+            // 右眼
             ctx.beginPath();
-            ctx.arc(centerX + iconSize/6, centerY - iconSize/8, eyeSize, 0, Math.PI * 2);
+            ctx.arc(headX + headSize * 0.7, eyeY, eyeSize, 0, Math.PI * 2);
             ctx.fill();
-            
+
             // 机器人嘴巴
             ctx.strokeStyle = '#667eea';
-            ctx.lineWidth = size / 16;
+            ctx.lineWidth = Math.max(1, size * 0.025);
             ctx.lineCap = 'round';
             ctx.beginPath();
-            ctx.arc(centerX, centerY + iconSize/12, iconSize/8, 0, Math.PI);
+            const mouthY = headY + headSize * 0.65;
+            const mouthWidth = headSize * 0.3;
+            ctx.arc(headX + headSize/2, mouthY, mouthWidth/2, 0, Math.PI);
             ctx.stroke();
+
+            // 机器人天线 (仅在较大尺寸显示)
+            if (size >= 48) {
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = Math.max(1, size * 0.02);
+                ctx.beginPath();
+                ctx.moveTo(size/2, headY);
+                ctx.lineTo(size/2, headY - size * 0.15);
+                ctx.stroke();
+
+                // 天线顶部
+                ctx.fillStyle = '#4facfe';
+                ctx.beginPath();
+                ctx.arc(size/2, headY - size * 0.15, size * 0.025, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // 装饰性元素 (仅在最大尺寸显示)
+            if (size >= 128) {
+                ctx.fillStyle = '#667eea';
+                const decorSize = size * 0.06;
+                const decorY = headY + headSize * 0.8;
+
+                // 左装饰
+                ctx.beginPath();
+                ctx.roundRect(headX + headSize * 0.15, decorY, decorSize, decorSize * 0.4, decorSize * 0.2);
+                ctx.fill();
+
+                // 右装饰
+                ctx.beginPath();
+                ctx.roundRect(headX + headSize * 0.75, decorY, decorSize, decorSize * 0.4, decorSize * 0.2);
+                ctx.fill();
+            }
         }
-        
-        // 生成所有尺寸的图标
-        drawIcon(document.getElementById('canvas16'), 16);
-        drawIcon(document.getElementById('canvas48'), 48);
-        drawIcon(document.getElementById('canvas128'), 128);
-        
+
+        function showStatus(message, type = 'success') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.style.display = 'block';
+            status.className = 'status ' + type;
+
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 3000);
+        }
+
         function downloadCanvas(canvas, filename) {
-            const link = document.createElement('a');
-            link.download = filename;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
+            try {
+                const link = document.createElement('a');
+                link.download = filename;
+                link.href = canvas.toDataURL('image/png');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                return true;
+            } catch (error) {
+                console.error('下载失败:', error);
+                return false;
+            }
         }
-        
+
+        function downloadSingle(size) {
+            const canvas = document.getElementById(`canvas${size}`);
+            const success = downloadCanvas(canvas, `icon${size}.png`);
+            if (success) {
+                showStatus(`✅ icon${size}.png 下载成功！`);
+            } else {
+                showStatus(`❌ icon${size}.png 下载失败！`, 'error');
+            }
+        }
+
         function downloadIcons() {
-            downloadCanvas(document.getElementById('canvas16'), 'icon16.png');
-            setTimeout(() => downloadCanvas(document.getElementById('canvas48'), 'icon48.png'), 100);
-            setTimeout(() => downloadCanvas(document.getElementById('canvas128'), 'icon128.png'), 200);
+            let successCount = 0;
+            const sizes = [16, 48, 128];
+
+            sizes.forEach((size, index) => {
+                setTimeout(() => {
+                    const canvas = document.getElementById(`canvas${size}`);
+                    const success = downloadCanvas(canvas, `icon${size}.png`);
+                    if (success) successCount++;
+
+                    if (index === sizes.length - 1) {
+                        if (successCount === sizes.length) {
+                            showStatus(`🎉 所有图标下载成功！共 ${successCount} 个文件`);
+                        } else {
+                            showStatus(`⚠️ 部分图标下载失败！成功 ${successCount}/${sizes.length} 个`, 'warning');
+                        }
+                    }
+                }, index * 200);
+            });
         }
+
+        function regenerateIcons() {
+            drawIcon(document.getElementById('canvas16'), 16);
+            drawIcon(document.getElementById('canvas48'), 48);
+            drawIcon(document.getElementById('canvas128'), 128);
+            showStatus('🔄 图标已重新生成！');
+        }
+
+        // 页面加载时生成图标
+        window.addEventListener('load', function() {
+            regenerateIcons();
+        });
     </script>
 </body>
 </html>
