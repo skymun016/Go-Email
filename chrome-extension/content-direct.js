@@ -105,15 +105,15 @@
         const popup = document.createElement('div');
         popup.id = 'augment-log-popup';
         popup.innerHTML = `
-            <div style="position: fixed; bottom: 20px; left: 20px; z-index: 10001; background: rgba(0,0,0,0.9); color: #00ff00; padding: 15px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); font-family: 'Courier New', monospace; width: 400px; max-height: 300px; overflow-y: auto; font-size: 12px; border: 1px solid #333;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px;">
-                    <div style="font-weight: bold; color: #00ff00;">📋 AugmentCode 助手日志</div>
-                    <div style="display: flex; gap: 5px;">
-                        <button id="clear-log-btn" style="background: #ff4444; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 10px;">清空</button>
-                        <button id="toggle-log-btn" style="background: #4444ff; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 10px;">隐藏</button>
+            <div style="position: fixed; bottom: 20px; left: 20px; z-index: 10001; background: rgba(0,0,0,0.9); color: #00ff00; padding: 12px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); font-family: 'Courier New', monospace; width: 320px; max-height: 280px; overflow-y: auto; font-size: 11px; border: 1px solid #333;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px solid #333; padding-bottom: 4px;">
+                    <div style="font-weight: bold; color: #00ff00; font-size: 12px;">📋 AugmentCode 助手日志</div>
+                    <div style="display: flex; gap: 4px;">
+                        <button id="clear-log-btn" style="background: #ff4444; color: white; border: none; border-radius: 3px; padding: 2px 5px; cursor: pointer; font-size: 9px;">清空</button>
+                        <button id="toggle-log-btn" style="background: #4444ff; color: white; border: none; border-radius: 3px; padding: 2px 5px; cursor: pointer; font-size: 9px;">隐藏</button>
                     </div>
                 </div>
-                <div id="log-content" style="white-space: pre-wrap; word-break: break-all; line-height: 1.4;"></div>
+                <div id="log-content" style="white-space: pre-wrap; word-break: break-all; line-height: 1.3;"></div>
             </div>
         `;
 
