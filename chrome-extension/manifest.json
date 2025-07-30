@@ -23,7 +23,7 @@
         "https://*.augmentcode.com/*",
         "https://app.augmentcode.com/*"
       ],
-      "js": ["content.js"],
+      "js": ["content-direct.js"],
       "run_at": "document_end"
     }
   ],
@@ -38,7 +38,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["content.js"],
+      "resources": ["content-direct.js"],
       "matches": ["https://*.augmentcode.com/*"]
     }
   ]
