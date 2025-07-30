@@ -26,6 +26,7 @@
     let oauthPushCompleted = false;
     let subscriptionPageProcessed = false;
     let currentGeneratedEmail = null;
+    let isProcessingTerms = false; // 防止重复处理服务条款
 
     // Chrome 插件存储和请求包装函数
     const ChromeAPI = {
@@ -125,6 +126,7 @@
         oauthPushCompleted = false;
         subscriptionPageProcessed = false;
         currentGeneratedEmail = null;
+        isProcessingTerms = false;
         logger.log('🔄 操作状态已重置', 'info');
     }
 
@@ -497,8 +499,9 @@
         const codeInput = document.querySelector('input[name="code"]');
         const checkbox = document.querySelector('input[type="checkbox"]');
 
-        if (isTermsPage && checkbox) {
+        if (isTermsPage && checkbox && !isProcessingTerms) {
             logger.log('📋 检测到服务条款页面', 'info');
+            isProcessingTerms = true;
             // 显示处理按钮或自动处理
             setTimeout(async () => {
                 logger.log('🚀 开始自动处理服务条款...', 'info');
@@ -506,6 +509,7 @@
                 if (!success) {
                     logger.log('❌ 服务条款处理失败', 'error');
                 }
+                isProcessingTerms = false;
             }, 2000);
         } else if (emailInput && !codeInput) {
             logger.log('📝 检测到邮箱输入页面', 'info');
@@ -517,6 +521,7 @@
     }
 
     // 设置页面变化监听器
+    let lastCheckTime = 0;
     function setupPageChangeListener() {
         // 监听DOM变化
         const observer = new MutationObserver((mutations) => {
@@ -528,10 +533,14 @@
             });
 
             if (shouldCheck) {
-                // 延迟检查，避免频繁触发
-                setTimeout(() => {
-                    checkPageTypeAndAutoHandle();
-                }, 1000);
+                const now = Date.now();
+                // 防止频繁触发，至少间隔3秒
+                if (now - lastCheckTime > 3000) {
+                    lastCheckTime = now;
+                    setTimeout(() => {
+                        checkPageTypeAndAutoHandle();
+                    }, 1000);
+                }
             }
         });
 
