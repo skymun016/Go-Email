@@ -250,7 +250,7 @@
     async function markEmailAsRegistered(email, viewUsageLink = null) {
         return new Promise((resolve, reject) => {
             logger.log('📝 标记邮箱为已注册: ' + email, 'info');
-            
+
             const requestData = {
                 action: "mark-registered",
                 email: email,
@@ -291,6 +291,104 @@
                 }
             });
         });
+    }
+
+    // 发送授权数据到后端OAuth回调接口 - 与油猴脚本完全一致
+    async function sendToBackendOAuth(jsonText) {
+        return new Promise((resolve, reject) => {
+        try {
+            // 检查是否已经推送过
+            if (oauthPushCompleted) {
+                logger.log('⏭️ OAuth推送已完成，跳过重复执行', 'info');
+                resolve({ status: 'already_completed' });
+                return;
+            }
+
+            logger.log('🚀 开始发送授权数据到后端...', 'info');
+            logger.log('📋 原始JSON数据: ' + jsonText, 'info');
+
+            // 解析JSON数据
+            const parsed = JSON.parse(jsonText);
+            if (!parsed.code || !parsed.tenant_url) {
+                throw new Error('JSON数据格式不正确，缺少必要字段');
+            }
+
+            // 构建回调数据
+            const callbackData = {
+                code: parsed.code,
+                tenant_url: parsed.tenant_url,
+                email: currentGeneratedEmail || 'unknown',
+                timestamp: new Date().toISOString()
+            };
+
+            logger.log('📤 准备发送的回调数据: ' + JSON.stringify(callbackData), 'info');
+
+            GM_xmlhttpRequest({
+                method: "POST",
+                url: `${BACKEND_CONFIG.url}/oauth/callback`,
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${BACKEND_CONFIG.adminToken}`
+                },
+                data: JSON.stringify(callbackData),
+                timeout: 30000,
+                onload: function(response) {
+                    logger.log('📡 收到后端响应，状态码: ' + response.status, 'info');
+                    logger.log('📄 响应内容: ' + response.responseText, 'info');
+
+                    if (response.status >= 200 && response.status < 300) {
+                        logger.log('✅ OAuth数据推送成功！', 'success');
+                        oauthPushCompleted = true;
+
+                        // 标记邮箱为已注册
+                        if (currentGeneratedEmail) {
+                            markEmailAsRegistered(currentGeneratedEmail)
+                                .then(() => {
+                                    logger.log('✅ 注册流程完全完成！', 'success');
+                                })
+                                .catch(error => {
+                                    logger.log('⚠️ 标记邮箱状态失败，但OAuth推送成功: ' + error.message, 'warning');
+                                });
+                        }
+
+                        resolve({
+                            status: 'success',
+                            response: response.responseText
+                        });
+                    } else {
+                        logger.log('❌ 后端返回错误状态: ' + response.status, 'error');
+                        reject(new Error(`HTTP ${response.status}: ${response.responseText}`));
+                    }
+                },
+                onerror: function(error) {
+                    logger.log('❌ 网络请求失败: ' + error.toString(), 'error');
+                    reject(new Error('网络请求失败: ' + error.toString()));
+                }
+            });
+
+        } catch (error) {
+            logger.log('❌ 发送OAuth数据失败: ' + error.message, 'error');
+            reject(error);
+        }
+        });
+    }
+
+    // 复制JSON到剪贴板并发送到后端 - 与油猴脚本完全一致
+    async function copyJsonToClipboard(jsonText) {
+        try {
+            await navigator.clipboard.writeText(jsonText);
+            logger.log('📋 JSON数据已复制到剪贴板', 'success');
+
+            // 发送到后端
+            try {
+                await sendToBackendOAuth(jsonText);
+                logger.log('🎉 授权数据推送成功！', 'success');
+            } catch (pushError) {
+                logger.log('❌ 推送到后端失败: ' + pushError.message, 'error');
+            }
+        } catch (error) {
+            logger.log('❌ 复制到剪贴板失败: ' + error.message, 'error');
+        }
     }
 
     // 从订阅页面提取邮箱 - 与油猴脚本完全一致
@@ -656,12 +754,38 @@
 
                 setTimeout(async () => {
                     try {
-                        const email = extractEmailFromSubscriptionPage();
+                        // 尝试恢复邮箱地址
+                        let emailToUpdate = currentGeneratedEmail;
+                        if (!emailToUpdate) {
+                            emailToUpdate = await GM_getValue('augment_current_email');
+                            if (emailToUpdate) {
+                                currentGeneratedEmail = emailToUpdate;
+                            }
+                        }
+
+                        // 如果还是没有邮箱，尝试从页面提取
+                        if (!emailToUpdate) {
+                            logger.log('🔍 尝试从订阅页面提取邮箱地址...', 'info');
+                            emailToUpdate = extractEmailFromSubscriptionPage();
+                            if (emailToUpdate) {
+                                logger.log('✅ 成功从页面提取邮箱: ' + emailToUpdate, 'success');
+                                currentGeneratedEmail = emailToUpdate;
+                                await GM_setValue('augment_current_email', emailToUpdate);
+                            }
+                        }
+
+                        // 提取 View usage 链接
                         const viewUsageLink = extractViewUsageLinkFromSubscriptionPage();
 
-                        if (email) {
-                            logger.log('📧 检测到注册成功的邮箱: ' + email, 'success');
-                            await markEmailAsRegistered(email, viewUsageLink);
+                        // 调试信息
+                        logger.log('🔍 页面监控 - 邮箱状态调试:', 'info');
+                        logger.log('- currentGeneratedEmail: ' + (currentGeneratedEmail || '未设置'), 'info');
+                        logger.log('- emailToUpdate: ' + (emailToUpdate || '未设置'), 'info');
+                        logger.log('- viewUsageLink: ' + (viewUsageLink || '未设置'), 'info');
+
+                        if (emailToUpdate) {
+                            logger.log('📧 检测到注册成功的邮箱: ' + emailToUpdate, 'success');
+                            await markEmailAsRegistered(emailToUpdate, viewUsageLink);
                             logger.log('🎉 注册流程完成！邮箱状态已更新', 'success');
 
                             // 清理存储
@@ -674,7 +798,24 @@
                         logger.log('❌ 处理订阅页面失败: ' + error.message, 'error');
                     }
                     isProcessing = false;
-                }, 3000);
+                }, 2000);
+            }
+
+            // 检查订阅页面的JSON数据（OAuth处理）- 与油猴脚本完全一致
+            if (currentUrl.includes('/account/subscription')) {
+                const scriptTags = document.querySelectorAll('script');
+                for (const script of scriptTags) {
+                    const content = script.textContent || script.innerText;
+                    if (content.includes('"code":') && content.includes('"tenant_url":')) {
+                        const jsonMatch = content.match(/\{[^}]*"code"[^}]*"tenant_url"[^}]*\}/);
+                        if (jsonMatch) {
+                            const jsonText = jsonMatch[0];
+                            logger.log('🎯 检测到授权数据: ' + jsonText, 'success');
+                            copyJsonToClipboard(jsonText);
+                            break;
+                        }
+                    }
+                }
             }
         });
 
