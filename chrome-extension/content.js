@@ -131,6 +131,31 @@
     // 暴露到全局，方便调试
     window.resetAugmentStates = resetOperationStates;
 
+    // 测试验证码获取
+    window.testGetVerificationCode = async function(email) {
+        if (!email) {
+            const savedEmail = await ChromeAPI.getValue('current_email');
+            email = savedEmail || prompt('请输入邮箱地址:');
+        }
+
+        if (!email) {
+            logger.log('❌ 未提供邮箱地址', 'error');
+            return;
+        }
+
+        logger.log('🧪 开始测试验证码获取...', 'info');
+        logger.log('📧 使用邮箱: ' + email, 'info');
+
+        try {
+            const code = await getVerificationCode(email);
+            logger.log('✅ 测试成功！获取到验证码: ' + code, 'success');
+            return code;
+        } catch (error) {
+            logger.log('❌ 测试失败: ' + error.message, 'error');
+            return null;
+        }
+    };
+
     // 调试页面输入框
     window.debugPageInputs = function() {
         logger.log('🔍 调试当前页面的输入框...', 'info');
@@ -376,12 +401,78 @@
         // 创建控制面板
         createControlPanel();
 
-        // 检查是否有注册表单
+        // 检查页面类型并自动处理
+        checkPageTypeAndAutoHandle();
+
+        // 监听页面变化
+        setupPageChangeListener();
+    }
+
+    // 检查页面类型并自动处理
+    function checkPageTypeAndAutoHandle() {
         const emailInput = document.querySelector('input[name="username"]') ||
                           document.querySelector('input[type="email"]');
-        if (emailInput) {
-            logger.log('📝 检测到注册表单', 'info');
-            // 可以在这里添加自动填写逻辑
+        const codeInput = document.querySelector('input[name="code"]');
+
+        if (emailInput && !codeInput) {
+            logger.log('📝 检测到邮箱输入页面', 'info');
+        } else if (codeInput) {
+            logger.log('📧 检测到验证码输入页面', 'info');
+            // 自动填写验证码（如果有保存的邮箱）
+            autoFillVerificationCodeIfNeeded();
+        }
+    }
+
+    // 设置页面变化监听器
+    function setupPageChangeListener() {
+        // 监听DOM变化
+        const observer = new MutationObserver((mutations) => {
+            let shouldCheck = false;
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                    shouldCheck = true;
+                }
+            });
+
+            if (shouldCheck) {
+                // 延迟检查，避免频繁触发
+                setTimeout(() => {
+                    checkPageTypeAndAutoHandle();
+                }, 1000);
+            }
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    }
+
+    // 自动填写验证码（如果需要）
+    async function autoFillVerificationCodeIfNeeded() {
+        // 检查是否有保存的邮箱
+        const savedEmail = await ChromeAPI.getValue('current_email');
+        if (!savedEmail) {
+            logger.log('⚠️ 未找到保存的邮箱，无法自动获取验证码', 'warning');
+            return;
+        }
+
+        // 检查是否已经在处理中
+        const isProcessing = await ChromeAPI.getValue('is_processing_verification');
+        if (isProcessing) {
+            logger.log('⏳ 验证码处理中，跳过重复处理', 'info');
+            return;
+        }
+
+        logger.log('🔄 开始自动填写验证码...', 'info');
+        await ChromeAPI.setValue('is_processing_verification', true);
+
+        try {
+            await waitAndFillVerificationCode(savedEmail);
+        } catch (error) {
+            logger.log('❌ 自动验证码填写失败: ' + error.message, 'error');
+        } finally {
+            await ChromeAPI.setValue('is_processing_verification', false);
         }
     }
 
@@ -972,17 +1063,14 @@
             // 1. 获取可用邮箱
             const mailbox = await getAvailableMailbox();
             currentGeneratedEmail = mailbox.email;
-            await ChromeAPI.setValue('augment_current_email', mailbox.email);
+            await ChromeAPI.setValue('current_email', mailbox.email);
 
             logger.log('📧 使用邮箱: ' + mailbox.email, 'info');
 
             // 2. 填写注册表单
             await fillRegistrationForm(mailbox.email);
 
-            // 3. 等待验证码并填写
-            await waitAndFillVerificationCode(mailbox.email);
-
-            logger.log('✅ 自动注册流程完成！', 'success');
+            logger.log('✅ 邮箱填写完成！页面跳转后将自动填写验证码', 'success');
 
         } catch (error) {
             logger.log('❌ 自动注册失败: ' + error.message, 'error');
@@ -1034,7 +1122,8 @@
         const maxAttempts = 30; // 30秒超时
 
         while (!verificationInput && attempts < maxAttempts) {
-            verificationInput = document.querySelector('input[name*="code"]') ||
+            verificationInput = document.querySelector('input[name="code"]') ||
+                              document.querySelector('input[name*="code"]') ||
                               document.querySelector('input[placeholder*="code"]') ||
                               document.querySelector('input[type="text"][maxlength="6"]');
 
