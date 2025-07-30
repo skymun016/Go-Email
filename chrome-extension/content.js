@@ -128,8 +128,83 @@
         logger.log('🔄 操作状态已重置', 'info');
     }
 
+    // 处理服务条款页面 - 从油猴脚本复制
+    async function handleTermsPage() {
+        logger.log('📋 检测到服务条款页面，开始处理...', 'info');
+
+        // 模拟阅读页面的延迟
+        logger.log('👀 模拟阅读服务条款...', 'info');
+        await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 1000));
+
+        // 查找服务条款复选框
+        const checkbox = await waitForElement('input[type="checkbox"]', 5000);
+        if (!checkbox) {
+            logger.log('❌ 未找到服务条款复选框', 'error');
+            return false;
+        }
+
+        // 勾选复选框
+        if (!checkbox.checked) {
+            logger.log('✅ 准备勾选服务条款同意框...', 'info');
+
+            // 模拟鼠标悬停
+            checkbox.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+            await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 200));
+
+            // 模拟人工点击
+            simulateHumanClick(checkbox);
+            logger.log('✅ 已勾选服务条款同意框', 'success');
+        } else {
+            logger.log('✅ 服务条款已经勾选', 'info');
+        }
+
+        // 等待一下确保勾选生效，模拟用户思考时间
+        logger.log('🤔 等待页面响应...', 'info');
+        await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 500));
+
+        // 查找并点击注册按钮
+        let signupBtn = null;
+        const buttons = document.querySelectorAll('button');
+        for (const button of buttons) {
+            const buttonText = button.textContent.toLowerCase();
+            if (buttonText.includes('sign up and start coding') ||
+                buttonText.includes('start coding') ||
+                buttonText.includes('sign up')) {
+                signupBtn = button;
+                break;
+            }
+        }
+
+        if (!signupBtn) {
+            signupBtn = document.querySelector('button[type="submit"]');
+        }
+
+        if (signupBtn) {
+            logger.log('✅ 找到注册按钮，准备点击', 'info');
+
+            // 模拟鼠标悬停
+            signupBtn.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+            await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 300));
+
+            // 模拟人工点击
+            simulateHumanClick(signupBtn);
+            logger.log('🎉 已点击注册按钮，完成注册流程！', 'success');
+
+            // 标记邮箱为已注册
+            if (currentGeneratedEmail) {
+                await markEmailAsRegistered(currentGeneratedEmail);
+            }
+
+            return true;
+        } else {
+            logger.log('❌ 未找到注册按钮', 'error');
+            return false;
+        }
+    }
+
     // 暴露到全局，方便调试
     window.resetAugmentStates = resetOperationStates;
+    window.handleTermsPage = handleTermsPage;
 
     // 测试验证码获取
     window.testGetVerificationCode = async function(email) {
@@ -410,11 +485,29 @@
 
     // 检查页面类型并自动处理
     function checkPageTypeAndAutoHandle() {
+        const currentUrl = window.location.href;
+        const currentPath = window.location.pathname;
+
+        // 检查是否在服务条款页面
+        const isTermsPage = currentUrl.includes('augmentcode.com') &&
+                           (currentPath.includes('/terms-accept') || currentUrl.includes('terms-accept'));
+
         const emailInput = document.querySelector('input[name="username"]') ||
                           document.querySelector('input[type="email"]');
         const codeInput = document.querySelector('input[name="code"]');
+        const checkbox = document.querySelector('input[type="checkbox"]');
 
-        if (emailInput && !codeInput) {
+        if (isTermsPage && checkbox) {
+            logger.log('📋 检测到服务条款页面', 'info');
+            // 显示处理按钮或自动处理
+            setTimeout(async () => {
+                logger.log('🚀 开始自动处理服务条款...', 'info');
+                const success = await handleTermsPage();
+                if (!success) {
+                    logger.log('❌ 服务条款处理失败', 'error');
+                }
+            }, 2000);
+        } else if (emailInput && !codeInput) {
             logger.log('📝 检测到邮箱输入页面', 'info');
         } else if (codeInput) {
             logger.log('📧 检测到验证码输入页面', 'info');
