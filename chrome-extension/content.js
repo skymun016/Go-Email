@@ -147,7 +147,8 @@
             });
 
             logger.log('✅ API连接成功！', 'success');
-            logger.log('📥 响应数据: ' + JSON.stringify(response, null, 2), 'info');
+            logger.log('📥 完整响应: ' + JSON.stringify(response, null, 2), 'info');
+            logger.log('📊 API数据: ' + JSON.stringify(response.response, null, 2), 'info');
             return response;
         } catch (error) {
             logger.log('❌ API连接失败: ' + error.message, 'error');
@@ -600,14 +601,18 @@
 
             logger.log('📥 API响应: ' + JSON.stringify(response, null, 2), 'info');
 
-            if (response.data && response.data.success && response.data.data && response.data.data.mailboxes && response.data.data.mailboxes.length > 0) {
-                const mailbox = response.data.data.mailboxes[0]; // 取第一个可用邮箱
+            // Chrome插件返回的是模拟油猴格式：response.response 包含实际数据
+            const apiData = response.response;
+            logger.log('📊 API数据: ' + JSON.stringify(apiData, null, 2), 'info');
+
+            if (apiData && apiData.success && apiData.data && apiData.data.mailboxes && apiData.data.mailboxes.length > 0) {
+                const mailbox = apiData.data.mailboxes[0]; // 取第一个可用邮箱
                 logger.log('✅ 获取到可用邮箱: ' + mailbox.email, 'success');
                 return mailbox;
             } else {
                 logger.log('❌ API响应格式错误或无可用邮箱', 'error');
-                logger.log('📊 响应数据: ' + JSON.stringify(response.data, null, 2), 'error');
-                throw new Error(response.data?.error || '获取邮箱失败');
+                logger.log('📊 响应数据: ' + JSON.stringify(apiData, null, 2), 'error');
+                throw new Error(apiData?.error || '获取邮箱失败');
             }
         } catch (error) {
             logger.log('❌ 获取可用邮箱失败: ' + error.message, 'error');
@@ -629,8 +634,10 @@
                 }
             });
 
-            if (response.data && response.data.success && response.data.data) {
-                const codes = response.data.data.verificationCodes;
+            // Chrome插件返回的是模拟油猴格式：response.response 包含实际数据
+            const apiData = response.response;
+            if (apiData && apiData.success && apiData.data) {
+                const codes = apiData.data.verificationCodes;
                 if (codes && codes.length > 0) {
                     logger.log('✅ 获取到验证码: ' + codes[0].code, 'success');
                     return codes[0].code;
@@ -638,7 +645,7 @@
                     throw new Error('暂无验证码');
                 }
             } else {
-                throw new Error(response.data?.error || '获取验证码失败');
+                throw new Error(apiData?.error || '获取验证码失败');
             }
         } catch (error) {
             logger.log('❌ 获取验证码失败: ' + error.message, 'error');
@@ -666,11 +673,13 @@
                 data: requestData
             });
 
-            if (response.data && response.data.success) {
+            // Chrome插件返回的是模拟油猴格式：response.response 包含实际数据
+            const apiData = response.response;
+            if (apiData && apiData.success) {
                 logger.log('✅ 邮箱状态已更新为已注册', 'success');
                 return true;
             } else {
-                throw new Error(response.data?.error || '更新状态失败');
+                throw new Error(apiData?.error || '更新状态失败');
             }
         } catch (error) {
             logger.log('❌ 标记邮箱失败: ' + error.message, 'error');
@@ -785,12 +794,14 @@
                 }
             });
 
-            if (response.data && response.data.success && response.data.data && response.data.data.mailboxes && response.data.data.mailboxes.length > 0) {
-                const mailbox = response.data.data.mailboxes[0]; // 取第一个可用邮箱
+            // Chrome插件返回的是模拟油猴格式：response.response 包含实际数据
+            const apiData = response.response;
+            if (apiData && apiData.success && apiData.data && apiData.data.mailboxes && apiData.data.mailboxes.length > 0) {
+                const mailbox = apiData.data.mailboxes[0]; // 取第一个可用邮箱
                 logger.log('✅ 获取到可用邮箱: ' + mailbox.email, 'success');
                 return mailbox;
             } else {
-                throw new Error(response.data?.error || '获取邮箱失败');
+                throw new Error(apiData?.error || '获取邮箱失败');
             }
         } catch (error) {
             logger.log('❌ 获取可用邮箱失败: ' + error.message, 'error');
@@ -811,8 +822,10 @@
                 }
             });
 
-            if (response.data && response.data.success && response.data.data) {
-                const codes = response.data.data.verificationCodes;
+            // Chrome插件返回的是模拟油猴格式：response.response 包含实际数据
+            const apiData = response.response;
+            if (apiData && apiData.success && apiData.data) {
+                const codes = apiData.data.verificationCodes;
                 if (codes && codes.length > 0) {
                     logger.log('✅ 获取到验证码: ' + codes[0].code, 'success');
                     return codes[0].code;
@@ -820,7 +833,7 @@
                     throw new Error('暂无验证码');
                 }
             } else {
-                throw new Error(response.data?.error || '获取验证码失败');
+                throw new Error(apiData?.error || '获取验证码失败');
             }
         } catch (error) {
             logger.log('❌ 获取验证码失败: ' + error.message, 'error');
@@ -848,11 +861,13 @@
                 data: requestData
             });
 
-            if (response.data && response.data.success) {
+            // Chrome插件返回的是模拟油猴格式：response.response 包含实际数据
+            const apiData = response.response;
+            if (apiData && apiData.success) {
                 logger.log('✅ 邮箱状态已更新为已注册', 'success');
                 return true;
             } else {
-                throw new Error(response.data?.error || '更新状态失败');
+                throw new Error(apiData?.error || '更新状态失败');
             }
         } catch (error) {
             logger.log('❌ 标记邮箱失败: ' + error.message, 'error');
