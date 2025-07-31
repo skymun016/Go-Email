@@ -128,3 +128,80 @@ npx wrangler d1 time-travel info gomail-database
   ```bash
   wrangler d1 time-travel restore gomail-database --bookmark=000001a0-0000009b-00004f4c-7b47be68d03a99054db2a4c6afcb3dbf
   ```
+
+### 2025-07-31 17:33
+- **时间**: 2025年 7月31日 星期四 17时33分02秒 CST
+- **UTC时间**: 2025-07-31T09:33:02Z
+- **书签ID**: `000001a3-00000008-00004f4c-24c4b64fd3fa444a12d4520a79bb6e19`
+- **描述**: 添加生成邮箱按钮功能，支持在页面直接生成测试邮箱
+- **状态**: ✅ 已保存
+- **恢复命令**: 
+  ```bash
+  wrangler d1 time-travel restore gomail-database --bookmark=000001a3-00000008-00004f4c-24c4b64fd3fa444a12d4520a79bb6e19
+  ```
+
+### 2025-07-31 17:38
+- **时间**: 2025年 7月31日 星期四 17时38分58秒 CST
+- **UTC时间**: 2025-07-31T09:38:58Z
+- **书签ID**: `000001a3-00000046-00004f4c-a1f45b3ebfca235b378244583a7cb1c7`
+- **描述**: 修复生成邮箱功能的数据库字段映射问题
+- **状态**: ✅ 已保存
+- **恢复命令**: 
+  ```bash
+  wrangler d1 time-travel restore gomail-database --bookmark=000001a3-00000046-00004f4c-a1f45b3ebfca235b378244583a7cb1c7
+  ```
+
+### 2025-07-31 17:42
+- **时间**: 2025年 7月31日 星期四 17时42分51秒 CST
+- **UTC时间**: 2025-07-31T09:42:51Z
+- **书签ID**: `000001a3-00000062-00004f4c-4687b993d2f8ac915f3155f94694cf25`
+- **描述**: 修复生成邮箱功能的JSON解析错误，使用fetcher替代fetch
+- **状态**: ✅ 已保存
+- **恢复命令**: 
+  ```bash
+  wrangler d1 time-travel restore gomail-database --bookmark=000001a3-00000062-00004f4c-4687b993d2f8ac915f3155f94694cf25
+  ```
+
+### 2025-07-31 18:09
+- **时间**: 2025年 7月31日 星期四 18时09分40秒 CST
+- **UTC时间**: 2025-07-31T10:09:40Z
+- **书签ID**: `000001a5-00000000-00004f4c-9b61d5b67dabc32bd626d23e9dba4029`
+- **描述**: 优化Telegram推送功能，优先发送验证码而不是完整邮件内容
+- **状态**: ✅ 已保存
+- **恢复命令**: 
+  ```bash
+  wrangler d1 time-travel restore gomail-database --bookmark=000001a5-00000000-00004f4c-9b61d5b67dabc32bd626d23e9dba4029
+  ```
+
+### 2025-07-31 18:17
+- **时间**: 2025年 7月31日 星期四 18时17分35秒 CST
+- **UTC时间**: 2025-07-31T10:17:35Z
+- **书签ID**: `000001a5-00000014-00004f4c-7cdacd61c8307cf98601d99c7cb1ca1e`
+- **描述**: 优化test-mailboxes-db页面布局，移除批量更新按钮，改进统计信息、Tab导航和筛选区域的布局
+- **状态**: ✅ 已保存
+- **恢复命令**: 
+  ```bash
+  wrangler d1 time-travel restore gomail-database --bookmark=000001a5-00000014-00004f4c-7cdacd61c8307cf98601d99c7cb1ca1e
+  ```
+
+### 2025-07-31 18:36
+- **时间**: 2025年 7月31日 星期四 18时36分45秒 CST
+- **UTC时间**: 2025-07-31T10:36:45Z
+- **书签ID**: `000001a7-0000001c-00004f4c-71845a770341a6d6986c472e5bcc1e30`
+- **描述**: 将统计信息和Tab导航改为一行显示，优化页面布局紧凑性
+- **状态**: ✅ 已保存
+- **恢复命令**: 
+  ```bash
+  wrangler d1 time-travel restore gomail-database --bookmark=000001a7-0000001c-00004f4c-71845a770341a6d6986c472e5bcc1e30
+  ```
+
+### 2025-07-31 18:41
+- **时间**: 2025年 7月31日 星期四 18时41分28秒 CST
+- **UTC时间**: 2025-07-31T10:41:28Z
+- **书签ID**: `000001a7-0000003a-00004f4c-225ac3b0ed3b26474a3cd82485721f27`
+- **描述**: 将统计信息和Tab导航设置为固定位置，不随页面滚动
+- **状态**: ✅ 已保存
+- **恢复命令**: 
+  ```bash
+  wrangler d1 time-travel restore gomail-database --bookmark=000001a7-0000003a-00004f4c-225ac3b0ed3b26474a3cd82485721f27
+  ```

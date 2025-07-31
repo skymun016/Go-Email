@@ -57,15 +57,45 @@ export class TelegramPushService {
   }
 
   /**
+   * 从邮件内容中提取验证码
+   * 支持多种常见的验证码格式
+   */
+  private extractVerificationCode(textContent?: string): string | null {
+    if (!textContent) return null;
+
+    // 定义多种验证码匹配模式
+    const patterns = [
+      // "Your verification code is: 123456"
+      /(?:verification code|验证码)(?:\s*is)?(?:\s*[:：])\s*(\d{6})/i,
+      // "验证码：123456"
+      /验证码[:：]\s*(\d{6})/i,
+      // "Code: 123456"
+      /code[:：]\s*(\d{6})/i,
+      // "OTP: 123456"
+      /otp[:：]\s*(\d{6})/i,
+      // "PIN: 123456"
+      /pin[:：]\s*(\d{6})/i,
+      // 独立的6位数字（更宽泛的匹配）
+      /\b(\d{6})\b/,
+    ];
+
+    // 按优先级尝试匹配
+    for (const pattern of patterns) {
+      const match = textContent.match(pattern);
+      if (match && match[1]) {
+        return match[1];
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * 格式化邮件消息为 Telegram 消息
+   * 优先发送验证码，如果没有验证码则发送邮件预览
    */
   private formatEmailMessage(notification: EmailNotification): TelegramMessage {
     const { from, to, subject, textContent, receivedAt, mailboxEmail } = notification;
-    
-    // 截取邮件内容预览（最多200字符）
-    const preview = textContent 
-      ? textContent.substring(0, 200) + (textContent.length > 200 ? '...' : '')
-      : '(无文本内容)';
 
     // 格式化时间
     const timeStr = receivedAt.toLocaleString('zh-CN', {
@@ -77,8 +107,33 @@ export class TelegramPushService {
       minute: '2-digit'
     });
 
-    // 使用 HTML 格式构建消息
-    const text = `
+    // 尝试提取验证码
+    const verificationCode = this.extractVerificationCode(textContent);
+
+    let text: string;
+
+    if (verificationCode) {
+      // 如果找到验证码，只发送验证码信息
+      text = `
+🔐 <b>验证码通知</b>
+
+📮 <b>邮箱:</b> <code>${mailboxEmail}</code>
+👤 <b>发件人:</b> <code>${from}</code>
+📝 <b>主题:</b> ${this.escapeHtml(subject || '(无主题)')}
+
+🔢 <b>验证码:</b> <code>${verificationCode}</code>
+
+🕐 <b>时间:</b> ${timeStr}
+
+🔗 <a href="https://${process.env.DOMAIN || 'your-domain.com'}/inbox/${encodeURIComponent(mailboxEmail)}">查看完整邮件</a>
+      `.trim();
+    } else {
+      // 如果没有验证码，发送邮件预览（保持原有逻辑）
+      const preview = textContent
+        ? textContent.substring(0, 200) + (textContent.length > 200 ? '...' : '')
+        : '(无文本内容)';
+
+      text = `
 📧 <b>新邮件通知</b>
 
 📮 <b>邮箱:</b> <code>${mailboxEmail}</code>
@@ -90,7 +145,8 @@ export class TelegramPushService {
 <pre>${this.escapeHtml(preview)}</pre>
 
 🔗 <a href="https://${process.env.DOMAIN || 'your-domain.com'}/inbox/${encodeURIComponent(mailboxEmail)}">查看完整邮件</a>
-    `.trim();
+      `.trim();
+    }
 
     return {
       chat_id: this.config.chatId,

@@ -201,27 +201,88 @@ export async function sendTestMessage(botToken: string, chatId: string): Promise
 }
 
 /**
+ * 从邮件内容中提取验证码
+ * 支持多种常见的验证码格式
+ */
+function extractVerificationCode(textContent?: string, htmlContent?: string): string | null {
+  if (!textContent && !htmlContent) return null;
+
+  // 合并文本内容和HTML内容进行搜索
+  const content = `${textContent || ''} ${htmlContent || ''}`;
+
+  // 定义多种验证码匹配模式
+  const patterns = [
+    // "Your verification code is: 123456"
+    /(?:verification code|验证码)(?:\s*is)?(?:\s*[:：])\s*(\d{6})/i,
+    // "验证码：123456"
+    /验证码[:：]\s*(\d{6})/i,
+    // "Code: 123456"
+    /code[:：]\s*(\d{6})/i,
+    // "OTP: 123456"
+    /otp[:：]\s*(\d{6})/i,
+    // "PIN: 123456"
+    /pin[:：]\s*(\d{6})/i,
+    // 独立的6位数字（更宽泛的匹配）
+    /\b(\d{6})\b/,
+  ];
+
+  // 按优先级尝试匹配
+  for (const pattern of patterns) {
+    const match = content.match(pattern);
+    if (match && match[1]) {
+      return match[1];
+    }
+  }
+
+  return null;
+}
+
+/**
  * 格式化邮件内容为 Telegram 消息
+ * 优先发送验证码，如果没有验证码则发送邮件预览
  */
 export function formatEmailForTelegram(email: any, mailbox: any): string {
-  const maxContentLength = 200;
-  const content = email.textContent || email.htmlContent || '';
-  const preview = content.length > maxContentLength 
-    ? content.substring(0, maxContentLength) + '...' 
-    : content;
-  
-  return `📧 <b>新邮件通知</b>
+  const textContent = email.textContent || '';
+  const htmlContent = email.htmlContent || '';
 
-<b>发件人:</b> ${email.fromAddress}
-<b>收件人:</b> ${mailbox.email}
-<b>主题:</b> ${email.subject || '(无主题)'}
-<b>时间:</b> ${new Date(email.receivedAt).toLocaleString('zh-CN')}
+  // 尝试提取验证码
+  const verificationCode = extractVerificationCode(textContent, htmlContent);
 
-<b>内容预览:</b>
-${preview.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+  if (verificationCode) {
+    // 如果找到验证码，只发送验证码信息
+    return `🔐 <b>验证码通知</b>
+
+📮 <b>邮箱:</b> <code>${mailbox.email}</code>
+👤 <b>发件人:</b> <code>${email.fromAddress}</code>
+📝 <b>主题:</b> ${(email.subject || '(无主题)').replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+
+🔢 <b>验证码:</b> <code>${verificationCode}</code>
+
+🕐 <b>时间:</b> ${new Date(email.receivedAt).toLocaleString('zh-CN')}
 
 ---
 <i>来自 AugMails 邮件服务</i>`;
+  } else {
+    // 如果没有验证码，发送邮件预览（保持原有逻辑）
+    const maxContentLength = 200;
+    const content = textContent || htmlContent || '';
+    const preview = content.length > maxContentLength
+      ? content.substring(0, maxContentLength) + '...'
+      : content;
+
+    return `📧 <b>新邮件通知</b>
+
+📮 <b>邮箱:</b> <code>${mailbox.email}</code>
+👤 <b>发件人:</b> <code>${email.fromAddress}</code>
+📝 <b>主题:</b> ${(email.subject || '(无主题)').replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+🕐 <b>时间:</b> ${new Date(email.receivedAt).toLocaleString('zh-CN')}
+
+📄 <b>内容预览:</b>
+<pre>${preview.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+
+---
+<i>来自 AugMails 邮件服务</i>`;
+  }
 }
 
 /**

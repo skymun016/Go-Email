@@ -11,6 +11,150 @@ import { testMailboxes, mailboxes } from "~/db/schema";
 import { asc, count, eq, like, sql, and, isNull } from "drizzle-orm";
 import { requireAdmin } from "~/lib/auth";
 
+// 当前支持的6个备用域名（不包括主域名）
+const BACKUP_DOMAINS = [
+  'asksy.dpdns.org',
+  'v5augment.ggff.net',
+  'xm252.qzz.io',
+  'augmails.qzz.io',
+  'adtg.qzz.io',
+  'amdt.qzz.io'
+];
+
+// 验证码生成密钥
+const VERIFICATION_SECRET = "gomail-verification-secret-2024";
+
+/**
+ * 生成验证码的算法
+ */
+function generateVerificationCode(emailPrefix: string): string {
+  try {
+    const normalizedPrefix = emailPrefix.toLowerCase().trim();
+    let hash = 0;
+    const combined = VERIFICATION_SECRET + normalizedPrefix;
+
+    for (let i = 0; i < combined.length; i++) {
+      const char = combined.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+
+    const positiveHash = Math.abs(hash);
+    const code = positiveHash % 1000000;
+
+    return code.toString().padStart(6, '0');
+  } catch (error) {
+    let fallbackCode = 0;
+    for (let i = 0; i < emailPrefix.length; i++) {
+      fallbackCode += emailPrefix.charCodeAt(i) * (i + 1);
+    }
+    return (fallbackCode % 1000000).toString().padStart(6, '0');
+  }
+}
+
+/**
+ * 生成真实的邮箱前缀
+ */
+function generateRealisticEmailPrefixes(count: number): string[] {
+  const prefixes: string[] = [];
+  const firstNames = [
+    'john', 'jane', 'mike', 'sarah', 'david', 'lisa', 'chris', 'anna',
+    'tom', 'mary', 'james', 'emma', 'robert', 'olivia', 'william', 'sophia',
+    'alex', 'emily', 'daniel', 'jessica', 'michael', 'ashley', 'matthew', 'amanda',
+    'andrew', 'jennifer', 'joshua', 'michelle', 'ryan', 'stephanie', 'kevin', 'nicole'
+  ];
+
+  const lastNames = [
+    'smith', 'johnson', 'williams', 'brown', 'jones', 'garcia', 'miller', 'davis',
+    'rodriguez', 'martinez', 'hernandez', 'lopez', 'gonzalez', 'wilson', 'anderson', 'thomas',
+    'taylor', 'moore', 'jackson', 'martin', 'lee', 'perez', 'thompson', 'white'
+  ];
+
+  const commonWords = [
+    'test', 'demo', 'user', 'admin', 'hello', 'welcome', 'contact', 'info',
+    'support', 'help', 'service', 'team', 'office', 'business', 'company', 'work',
+    'project', 'dev', 'developer', 'code', 'tech', 'digital', 'online', 'web'
+  ];
+
+  const numbers = [
+    '123', '456', '789', '2024', '2023', '01', '02', '03', '04', '05',
+    '06', '07', '08', '09', '10', '99', '88', '77', '66', '55'
+  ];
+
+  const usedPrefixes = new Set<string>();
+
+  while (prefixes.length < count) {
+    let prefix = '';
+    const type = Math.random();
+
+    if (type < 0.3) {
+      const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
+      const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+      prefix = `${firstName}.${lastName}`;
+    } else if (type < 0.5) {
+      const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
+      const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+      prefix = `${firstName}${lastName}`;
+    } else if (type < 0.7) {
+      const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
+      const number = numbers[Math.floor(Math.random() * numbers.length)];
+      prefix = `${firstName}${number}`;
+    } else if (type < 0.85) {
+      const word = commonWords[Math.floor(Math.random() * commonWords.length)];
+      const number = numbers[Math.floor(Math.random() * numbers.length)];
+      prefix = `${word}${number}`;
+    } else {
+      const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
+      const number = numbers[Math.floor(Math.random() * numbers.length)];
+      prefix = `${firstName}_${number}`;
+    }
+
+    if (!usedPrefixes.has(prefix)) {
+      usedPrefixes.add(prefix);
+      prefixes.push(prefix);
+    }
+  }
+
+  return prefixes;
+}
+
+/**
+ * 生成测试邮箱数据
+ */
+function generateTestMailboxes(startId: number, count: number) {
+  const prefixes = generateRealisticEmailPrefixes(count);
+  const testData = [];
+
+  prefixes.forEach((prefix, index) => {
+    const domain = BACKUP_DOMAINS[Math.floor(Math.random() * BACKUP_DOMAINS.length)];
+    const email = `${prefix}@${domain}`;
+    const code = generateVerificationCode(prefix);
+
+    testData.push({
+      id: startId + index,
+      email: email,
+      prefix: prefix,
+      domain: domain,
+      verification_code: code,
+      direct_link: `https://app.aug.qzz.io/verify-mailbox?email=${encodeURIComponent(email)}&code=${code}`,
+      copy_count: 0,
+      created_at: Math.floor(Date.now() / 1000),
+      expires_at: null,
+      registration_status: 'unregistered',
+      count: null,
+      sale_status: 'unsold',
+      updated_at: null,
+      remark: null,
+      is_auto_registered: 0,
+      view_usage_link: null,
+      credit_balance: null,
+      credit_balance_updated_at: null
+    });
+  });
+
+  return testData;
+}
+
 // 处理延长时间的action
 export async function action({ context, request }: Route.ActionArgs) {
   console.log('🎯 Action函数被调用！');
@@ -168,6 +312,76 @@ export async function action({ context, request }: Route.ActionArgs) {
       return new Response(JSON.stringify({ success: true, message: '邮箱有效期已延长7天' }), {
         headers: { 'Content-Type': 'application/json' }
       });
+    }
+
+    if (action === 'generate' && formData.get('count')) {
+      // 生成新的测试邮箱
+      const count = parseInt(formData.get('count') as string);
+
+      if (isNaN(count) || count <= 0 || count > 500) {
+        return new Response(JSON.stringify({
+          success: false,
+          message: '生成数量必须是1-500之间的数字'
+        }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      try {
+        // 获取当前最大ID
+        const maxIdResult = await db
+          .select({ maxId: sql<number>`MAX(id)` })
+          .from(testMailboxes)
+          .limit(1);
+
+        const startId = (maxIdResult[0]?.maxId || 0) + 1;
+
+        // 生成新邮箱数据的逻辑
+        const newMailboxes = generateTestMailboxes(startId, count);
+
+        // 批量插入新邮箱
+        for (const mailbox of newMailboxes) {
+          await db.insert(testMailboxes).values({
+            id: mailbox.id,
+            email: mailbox.email,
+            verificationCode: mailbox.verification_code,
+            domain: mailbox.domain,
+            prefix: mailbox.prefix,
+            directLink: mailbox.direct_link,
+            emailCopyCount: mailbox.copy_count,
+            linkCopyCount: 0,
+            createdAt: new Date(mailbox.created_at * 1000),
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7天后过期
+            registrationStatus: mailbox.registration_status as "registered" | "unregistered",
+            count: mailbox.count as "125" | "650" | null,
+            saleStatus: mailbox.sale_status as "sold" | "unsold",
+            updatedAt: new Date(),
+            remark: mailbox.remark,
+            isAutoRegistered: Boolean(mailbox.is_auto_registered),
+            viewUsageLink: mailbox.view_usage_link,
+            creditBalance: mailbox.credit_balance,
+            creditBalanceUpdatedAt: mailbox.credit_balance_updated_at ? new Date(mailbox.credit_balance_updated_at) : null
+          });
+        }
+
+        console.log(`✅ 成功生成 ${count} 个新邮箱，ID范围: ${startId}-${startId + count - 1}`);
+
+        return new Response(JSON.stringify({
+          success: true,
+          message: `成功生成 ${count} 个新邮箱！ID范围: ${startId}-${startId + count - 1}`
+        }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+      } catch (error) {
+        console.error('生成邮箱失败:', error);
+        return new Response(JSON.stringify({
+          success: false,
+          message: `生成邮箱失败: ${error instanceof Error ? error.message : '未知错误'}`
+        }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
     }
 
     if (action === 'updateCopyCount' && mailboxId) {
@@ -672,6 +886,40 @@ export default function TestMailboxesDB() {
   // 延长时间按钮状态管理
   const [extendingTime, setExtendingTime] = useState<Record<number, boolean>>({});
 
+  // 生成邮箱弹窗状态管理
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [generateCount, setGenerateCount] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  // 监听fetcher状态变化
+  useEffect(() => {
+    if (fetcher.state === 'idle' && fetcher.data) {
+      setIsGenerating(false);
+
+      // 检查是否是生成邮箱的响应
+      if (fetcher.data.success !== undefined) {
+        if (fetcher.data.success) {
+          setNotification({
+            message: fetcher.data.message || '邮箱生成成功！',
+            type: 'success'
+          });
+        } else {
+          setNotification({
+            message: fetcher.data.message || '邮箱生成失败',
+            type: 'error'
+          });
+        }
+        setTimeout(() => setNotification(null), 5000);
+      }
+    } else if (fetcher.state === 'submitting') {
+      // 如果是生成邮箱的提交
+      const formData = fetcher.formData;
+      if (formData && formData.get('action') === 'generate') {
+        setIsGenerating(true);
+      }
+    }
+  }, [fetcher.state, fetcher.data]);
+
   // 响应式样式
   const mobileStyles = `
     @media (max-width: 768px) {
@@ -927,6 +1175,46 @@ export default function TestMailboxesDB() {
     }
   };
 
+  // 生成邮箱函数
+  const handleGenerate = () => {
+    const count = parseInt(generateCount);
+
+    if (isNaN(count) || count <= 0 || count > 500) {
+      setNotification({
+        message: '生成数量必须是1-500之间的数字',
+        type: 'error'
+      });
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+
+    setIsGenerating(true);
+
+    try {
+      // 使用 fetcher.submit 来处理请求
+      fetcher.submit(
+        { action: 'generate', count: count.toString() },
+        { method: 'post' }
+      );
+
+      setShowGenerateModal(false);
+      setGenerateCount('');
+
+      setNotification({
+        message: `正在生成 ${count} 个邮箱，请稍候...`,
+        type: 'success'
+      });
+
+    } catch (error) {
+      console.error('生成邮箱失败:', error);
+      setNotification({
+        message: '生成邮箱失败',
+        type: 'error'
+      });
+      setIsGenerating(false);
+    }
+  };
+
   // 错误现在由ErrorBoundary处理，不需要在这里处理
   
   return (
@@ -956,216 +1244,225 @@ export default function TestMailboxesDB() {
 
 
       
-      {/* 统计信息 */}
+      {/* 统计信息和Tab导航 - 固定位置 */}
       <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        marginBottom: '15px'
+        position: 'sticky',
+        top: '0',
+        zIndex: 100,
+        backgroundColor: 'white',
+        borderBottom: '1px solid #e9ecef',
+        paddingTop: '15px',
+        paddingBottom: '15px',
+        marginBottom: '20px',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
       }}>
-        {/* 居中的总邮箱数 - 一行显示 */}
-        <div className="stats-container" style={{
-          padding: '20px',
-          backgroundColor: '#f8f9fa',
-          borderRadius: '12px',
-          border: '1px solid #e9ecef',
-          textAlign: 'center',
-          minWidth: '200px'
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '20px',
+          flexWrap: 'wrap',
+          maxWidth: '1200px',
+          margin: '0 auto',
+          paddingLeft: '20px',
+          paddingRight: '20px'
         }}>
+        {/* 左侧：统计信息 */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '20px',
+          padding: '12px 20px',
+          backgroundColor: '#f8f9fa',
+          borderRadius: '8px',
+          border: '1px solid #e9ecef',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+          minWidth: 'fit-content'
+        }}>
+          {/* 总邮箱数 */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            gap: '10px',
-            fontSize: '24px',
-            fontWeight: 'bold'
+            gap: '6px'
           }}>
-            <span style={{ color: '#495057' }}>总邮箱数：</span>
-            <span style={{ color: '#007bff' }}>{totalCount}</span>
+            <span style={{
+              fontSize: '16px',
+              fontWeight: '600',
+              color: '#495057'
+            }}>
+              总邮箱数：
+            </span>
+            <span style={{
+              fontSize: '20px',
+              fontWeight: 'bold',
+              color: '#007bff'
+            }}>
+              {totalCount}
+            </span>
           </div>
 
           {/* 自动注册邮箱统计 */}
           {autoRegisteredCount > 0 && (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              fontSize: '16px',
-              fontWeight: '500',
-              marginTop: '8px',
-              color: '#28a745'
-            }}>
-              <span>🤖</span>
-              <span>自动注册：{autoRegisteredCount} 个</span>
-              <span style={{
-                fontSize: '12px',
-                color: '#6c757d',
-                fontWeight: 'normal'
+            <>
+              <div style={{
+                width: '1px',
+                height: '24px',
+                backgroundColor: '#dee2e6'
+              }}></div>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
               }}>
-                ({((autoRegisteredCount / totalCount) * 100).toFixed(1)}%)
-              </span>
-            </div>
+                <span style={{ fontSize: '14px' }}>🤖</span>
+                <span style={{
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: '#28a745'
+                }}>
+                  自动注册：{autoRegisteredCount}
+                </span>
+                <span style={{
+                  fontSize: '12px',
+                  color: '#6c757d',
+                  fontWeight: 'normal',
+                  marginLeft: '2px'
+                }}>
+                  ({((autoRegisteredCount / totalCount) * 100).toFixed(1)}%)
+                </span>
+              </div>
+            </>
           )}
-
-          {/* 临时更新按钮 */}
-          <div style={{ marginTop: '10px' }}>
-            <button
-              onClick={async () => {
-                if (confirm('确定要将所有记录的注册状态更新为"未注册"吗？')) {
-                  try {
-                    const formData = new FormData();
-                    formData.append('action', 'updateRegistrationStatus');
-
-                    const response = await fetch(window.location.pathname, {
-                      method: 'POST',
-                      body: formData
-                    });
-
-                    const result = await response.json();
-
-                    if (result.success) {
-                      window.location.reload();
-                    } else {
-                      console.error('更新失败：' + result.message);
-                    }
-                  } catch (error) {
-                    console.error('更新失败：' + error);
-                  }
-                }
-              }}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: '#28a745',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '14px'
-              }}
-            >
-              批量更新注册状态为"未注册"
-            </button>
-          </div>
         </div>
 
-        {/* Tab导航 */}
+        {/* 右侧：Tab导航 */}
         <div style={{
-          marginTop: '20px',
           display: 'flex',
-          justifyContent: 'center',
-          gap: '8px',
-          marginBottom: '20px'
+          gap: '6px',
+          flexWrap: 'wrap',
+          alignItems: 'center'
         }}>
+        <button
+          onClick={() => switchTab('all')}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: activeTab === 'all' ? '#007bff' : '#f8f9fa',
+            color: activeTab === 'all' ? 'white' : '#495057',
+            border: `1px solid ${activeTab === 'all' ? '#007bff' : '#e9ecef'}`,
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: '500',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          全部
+        </button>
+        <button
+          onClick={() => switchTab('unregistered')}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: activeTab === 'unregistered' ? '#007bff' : '#f8f9fa',
+            color: activeTab === 'unregistered' ? 'white' : '#495057',
+            border: `1px solid ${activeTab === 'unregistered' ? '#007bff' : '#e9ecef'}`,
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: '500',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          未注册邮箱
+        </button>
+        <button
+          onClick={() => switchTab('registered_unsold')}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: activeTab === 'registered_unsold' ? '#007bff' : '#f8f9fa',
+            color: activeTab === 'registered_unsold' ? 'white' : '#495057',
+            border: `1px solid ${activeTab === 'registered_unsold' ? '#007bff' : '#e9ecef'}`,
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: '500',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          已注册未售出
+        </button>
+        <button
+          onClick={() => switchTab('registered_sold')}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: activeTab === 'registered_sold' ? '#007bff' : '#f8f9fa',
+            color: activeTab === 'registered_sold' ? 'white' : '#495057',
+            border: `1px solid ${activeTab === 'registered_sold' ? '#007bff' : '#e9ecef'}`,
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: '500',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          已注册已售出
+        </button>
+        {autoRegisteredCount > 0 && (
           <button
-            onClick={() => switchTab('all')}
+            onClick={() => switchTab('auto_registered')}
             style={{
-              padding: '12px 24px',
-              backgroundColor: activeTab === 'all' ? '#007bff' : '#f8f9fa',
-              color: activeTab === 'all' ? 'white' : '#495057',
-              border: `1px solid ${activeTab === 'all' ? '#007bff' : '#e9ecef'}`,
-              borderRadius: '8px',
+              padding: '8px 16px',
+              backgroundColor: activeTab === 'auto_registered' ? '#28a745' : '#f8f9fa',
+              color: activeTab === 'auto_registered' ? 'white' : '#495057',
+              border: `1px solid ${activeTab === 'auto_registered' ? '#28a745' : '#e9ecef'}`,
+              borderRadius: '6px',
               cursor: 'pointer',
               fontSize: '14px',
               fontWeight: '500',
-              transition: 'all 0.2s ease'
+              transition: 'all 0.2s ease',
+              position: 'relative'
             }}
           >
-            全部
+            🤖 自动注册
+            <span style={{
+              marginLeft: '6px',
+              fontSize: '12px',
+              backgroundColor: activeTab === 'auto_registered' ? 'rgba(255,255,255,0.2)' : '#28a745',
+              color: activeTab === 'auto_registered' ? 'white' : 'white',
+              padding: '2px 6px',
+              borderRadius: '10px',
+              fontWeight: 'bold'
+            }}>
+              {autoRegisteredCount}
+            </span>
           </button>
-          <button
-            onClick={() => switchTab('unregistered')}
-            style={{
-              padding: '12px 24px',
-              backgroundColor: activeTab === 'unregistered' ? '#007bff' : '#f8f9fa',
-              color: activeTab === 'unregistered' ? 'white' : '#495057',
-              border: `1px solid ${activeTab === 'unregistered' ? '#007bff' : '#e9ecef'}`,
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: '500',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            未注册邮箱
-          </button>
-          <button
-            onClick={() => switchTab('registered_unsold')}
-            style={{
-              padding: '12px 24px',
-              backgroundColor: activeTab === 'registered_unsold' ? '#007bff' : '#f8f9fa',
-              color: activeTab === 'registered_unsold' ? 'white' : '#495057',
-              border: `1px solid ${activeTab === 'registered_unsold' ? '#007bff' : '#e9ecef'}`,
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: '500',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            已注册未售出
-          </button>
-          <button
-            onClick={() => switchTab('registered_sold')}
-            style={{
-              padding: '12px 24px',
-              backgroundColor: activeTab === 'registered_sold' ? '#007bff' : '#f8f9fa',
-              color: activeTab === 'registered_sold' ? 'white' : '#495057',
-              border: `1px solid ${activeTab === 'registered_sold' ? '#007bff' : '#e9ecef'}`,
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: '500',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            已注册已售出
-          </button>
-          {autoRegisteredCount > 0 && (
-            <button
-              onClick={() => switchTab('auto_registered')}
-              style={{
-                padding: '12px 24px',
-                backgroundColor: activeTab === 'auto_registered' ? '#28a745' : '#f8f9fa',
-                color: activeTab === 'auto_registered' ? 'white' : '#495057',
-                border: `1px solid ${activeTab === 'auto_registered' ? '#28a745' : '#e9ecef'}`,
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '500',
-                transition: 'all 0.2s ease',
-                position: 'relative'
-              }}
-            >
-              🤖 自动注册
-              <span style={{
-                marginLeft: '6px',
-                fontSize: '12px',
-                backgroundColor: activeTab === 'auto_registered' ? 'rgba(255,255,255,0.2)' : '#28a745',
-                color: activeTab === 'auto_registered' ? 'white' : 'white',
-                padding: '2px 6px',
-                borderRadius: '10px',
-                fontWeight: 'bold'
-              }}>
-                {autoRegisteredCount}
-              </span>
-            </button>
-          )}
+        )}
         </div>
+        </div>
+      </div>
 
-        {/* 搜索和筛选区域 - 单行布局 */}
+      {/* 搜索和筛选区域 */}
+      <div style={{
+        padding: '16px',
+        backgroundColor: '#f8f9fa',
+        borderRadius: '8px',
+        border: '1px solid #e9ecef',
+        marginBottom: '20px',
+        marginTop: '10px'
+      }}>
         <div style={{
-          marginTop: '20px',
-          padding: '16px',
-          backgroundColor: '#f8f9fa',
-          borderRadius: '8px',
-          border: '1px solid #e9ecef'
+          display: 'flex',
+          gap: '12px',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between'
         }}>
+          {/* 左侧：搜索框和筛选器 */}
           <div style={{
             display: 'flex',
             gap: '12px',
             alignItems: 'center',
-            flexWrap: 'wrap'
+            flexWrap: 'wrap',
+            flex: '1'
           }}>
             {/* 搜索框 */}
             <div style={{
@@ -1355,73 +1652,97 @@ export default function TestMailboxesDB() {
             )}
           </div>
 
-          {/* 筛选结果统计 */}
-          {(isFiltering || isSearching) && (
-            <div style={{
-              marginTop: '12px',
-              fontSize: '14px',
-              color: '#6c757d',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '16px',
-              flexWrap: 'wrap'
-            }}>
-              <span>
-                {isSearching && isFiltering ? '搜索和筛选' : isSearching ? '搜索' : '筛选'}结果：
-                找到 <strong style={{ color: '#495057' }}>{totalCount}</strong> 个邮箱
-              </span>
-
-              {/* 当前筛选条件显示 */}
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {isSearching && (
-                  <span style={{
-                    padding: '2px 8px',
-                    backgroundColor: '#e3f2fd',
-                    color: '#1976d2',
-                    borderRadius: '12px',
-                    fontSize: '12px'
-                  }}>
-                    搜索: "{searchQuery}"
-                  </span>
-                )}
-                {filters.registrationStatus && (
-                  <span style={{
-                    padding: '2px 8px',
-                    backgroundColor: '#f3e5f5',
-                    color: '#7b1fa2',
-                    borderRadius: '12px',
-                    fontSize: '12px'
-                  }}>
-                    注册状态: {filters.registrationStatus}
-                  </span>
-                )}
-                {filters.count && (
-                  <span style={{
-                    padding: '2px 8px',
-                    backgroundColor: '#e8f5e8',
-                    color: '#388e3c',
-                    borderRadius: '12px',
-                    fontSize: '12px'
-                  }}>
-                    次数: {filters.count}
-                  </span>
-                )}
-                {filters.saleStatus && (
-                  <span style={{
-                    padding: '2px 8px',
-                    backgroundColor: '#fff3e0',
-                    color: '#f57c00',
-                    borderRadius: '12px',
-                    fontSize: '12px'
-                  }}>
-                    售出状态: {filters.saleStatus}
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
+          {/* 右侧：生成邮箱按钮 */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center'
+          }}>
+            <button
+              onClick={() => setShowGenerateModal(true)}
+              style={{
+                padding: '8px 16px',
+                fontSize: '14px',
+                border: '1px solid #28a745',
+                backgroundColor: '#28a745',
+                color: 'white',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: '500',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              ✨ 生成邮箱
+            </button>
+          </div>
         </div>
 
+        {/* 筛选结果统计 */}
+        {(isFiltering || isSearching) && (
+          <div style={{
+            marginTop: '12px',
+            fontSize: '14px',
+            color: '#6c757d',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+            flexWrap: 'wrap'
+          }}>
+            <span>
+              {isSearching && isFiltering ? '搜索和筛选' : isSearching ? '搜索' : '筛选'}结果：
+              找到 <strong style={{ color: '#495057' }}>{totalCount}</strong> 个邮箱
+            </span>
+
+            {/* 当前筛选条件显示 */}
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {isSearching && (
+                <span style={{
+                  padding: '2px 8px',
+                  backgroundColor: '#e3f2fd',
+                  color: '#1976d2',
+                  borderRadius: '12px',
+                  fontSize: '12px'
+                }}>
+                  搜索: "{searchQuery}"
+                </span>
+              )}
+              {filters.registrationStatus && (
+                <span style={{
+                  padding: '2px 8px',
+                  backgroundColor: '#f3e5f5',
+                  color: '#7b1fa2',
+                  borderRadius: '12px',
+                  fontSize: '12px'
+                }}>
+                  注册状态: {filters.registrationStatus}
+                </span>
+              )}
+              {filters.count && (
+                <span style={{
+                  padding: '2px 8px',
+                  backgroundColor: '#e8f5e8',
+                  color: '#388e3c',
+                  borderRadius: '12px',
+                  fontSize: '12px'
+                }}>
+                  次数: {filters.count}
+                </span>
+              )}
+              {filters.saleStatus && (
+                <span style={{
+                  padding: '2px 8px',
+                  backgroundColor: '#fff3e0',
+                  color: '#f57c00',
+                  borderRadius: '12px',
+                  fontSize: '12px'
+                }}>
+                  售出状态: {filters.saleStatus}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 邮箱列表 */}
@@ -2206,6 +2527,116 @@ export default function TestMailboxesDB() {
                 }}
               >
                 确认删除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 生成邮箱弹窗 */}
+      {showGenerateModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '24px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            minWidth: '400px',
+            maxWidth: '500px'
+          }}>
+            <h3 style={{
+              margin: '0 0 16px 0',
+              color: '#333',
+              fontSize: '18px',
+              fontWeight: '600'
+            }}>
+              ✨ 生成新邮箱
+            </h3>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '8px',
+                fontSize: '14px',
+                color: '#495057',
+                fontWeight: '500'
+              }}>
+                生成数量:
+              </label>
+              <input
+                type="number"
+                value={generateCount}
+                onChange={(e) => setGenerateCount(e.target.value)}
+                placeholder="请输入1-500之间的数字"
+                min="1"
+                max="500"
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  boxSizing: 'border-box'
+                }}
+              />
+              <div style={{
+                fontSize: '12px',
+                color: '#6c757d',
+                marginTop: '4px'
+              }}>
+                新邮箱将使用6个备用域名随机分配，过期时间为7天
+              </div>
+            </div>
+
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'flex-end'
+            }}>
+              <button
+                onClick={() => {
+                  setShowGenerateModal(false);
+                  setGenerateCount('');
+                }}
+                disabled={isGenerating}
+                style={{
+                  padding: '8px 16px',
+                  fontSize: '14px',
+                  border: '1px solid #6c757d',
+                  backgroundColor: 'white',
+                  color: '#6c757d',
+                  borderRadius: '4px',
+                  cursor: isGenerating ? 'not-allowed' : 'pointer'
+                }}
+              >
+                取消
+              </button>
+              <button
+                onClick={handleGenerate}
+                disabled={isGenerating || !generateCount}
+                style={{
+                  padding: '8px 16px',
+                  fontSize: '14px',
+                  border: '1px solid #28a745',
+                  backgroundColor: isGenerating ? '#6c757d' : '#28a745',
+                  color: 'white',
+                  borderRadius: '4px',
+                  cursor: (isGenerating || !generateCount) ? 'not-allowed' : 'pointer',
+                  fontWeight: '500'
+                }}
+              >
+                {isGenerating ? '生成中...' : '开始生成'}
               </button>
             </div>
           </div>
