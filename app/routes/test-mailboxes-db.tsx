@@ -11,14 +11,14 @@ import { testMailboxes, mailboxes } from "~/db/schema";
 import { asc, count, eq, like, sql, and, isNull } from "drizzle-orm";
 import { requireAdmin } from "~/lib/auth";
 
-// 当前支持的6个备用域名（不包括主域名）
+// 当前支持的域名列表（包括主域名和备用域名）
 const BACKUP_DOMAINS = [
+  'aug.qzz.io',
   'asksy.dpdns.org',
-  'v5augment.ggff.net',
-  'xm252.qzz.io',
-  'augmails.qzz.io',
-  'adtg.qzz.io',
-  'amdt.qzz.io'
+  'temp.qzz.io',
+  'mail.qzz.io',
+  'inbox.qzz.io',
+  'email.qzz.io'
 ];
 
 // 验证码生成密钥
@@ -151,6 +151,49 @@ function generateTestMailboxes(startId: number, count: number) {
       credit_balance_updated_at: null
     });
   });
+
+  return testData;
+}
+
+/**
+ * 生成自定义前缀的测试邮箱数据
+ */
+function generateCustomTestMailboxes(startId: number, count: number, customPrefix: string, selectedDomain: string) {
+  const testData = [];
+
+  for (let i = 0; i < count; i++) {
+    // 使用自定义前缀和选择的域名
+    let prefix = customPrefix;
+
+    // 如果生成多个邮箱，在前缀后添加数字后缀
+    if (count > 1) {
+      prefix = `${customPrefix}_${i + 1}`;
+    }
+
+    const email = `${prefix}@${selectedDomain}`;
+    const code = generateVerificationCode(prefix);
+
+    testData.push({
+      id: startId + i,
+      email: email,
+      prefix: prefix,
+      domain: selectedDomain,
+      verification_code: code,
+      direct_link: `https://app.aug.qzz.io/verify-mailbox?email=${encodeURIComponent(email)}&code=${code}`,
+      copy_count: 0,
+      created_at: Math.floor(Date.now() / 1000),
+      expires_at: null,
+      registration_status: 'unregistered',
+      count: null,
+      sale_status: 'unsold',
+      updated_at: null,
+      remark: null,
+      is_auto_registered: 0,
+      view_usage_link: null,
+      credit_balance: null,
+      credit_balance_updated_at: null
+    });
+  }
 
   return testData;
 }
@@ -317,6 +360,9 @@ export async function action({ context, request }: Route.ActionArgs) {
     if (action === 'generate' && formData.get('count')) {
       // 生成新的测试邮箱
       const count = parseInt(formData.get('count') as string);
+      const mode = formData.get('mode') as string || 'random';
+      const customPrefix = formData.get('customPrefix') as string;
+      const selectedDomain = formData.get('selectedDomain') as string;
 
       if (isNaN(count) || count <= 0 || count > 500) {
         return new Response(JSON.stringify({
@@ -325,6 +371,45 @@ export async function action({ context, request }: Route.ActionArgs) {
         }), {
           headers: { 'Content-Type': 'application/json' }
         });
+      }
+
+      // 自定义模式下的验证
+      if (mode === 'custom') {
+        if (!customPrefix || !selectedDomain) {
+          return new Response(JSON.stringify({
+            success: false,
+            message: '自定义模式下必须提供前缀和域名'
+          }), {
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
+        if (!/^[a-zA-Z0-9_-]+$/.test(customPrefix)) {
+          return new Response(JSON.stringify({
+            success: false,
+            message: '邮箱前缀只能包含字母、数字、下划线和连字符'
+          }), {
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
+        if (customPrefix.length < 3 || customPrefix.length > 20) {
+          return new Response(JSON.stringify({
+            success: false,
+            message: '邮箱前缀长度必须在3-20个字符之间'
+          }), {
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
+        if (!BACKUP_DOMAINS.includes(selectedDomain)) {
+          return new Response(JSON.stringify({
+            success: false,
+            message: '选择的域名不在支持列表中'
+          }), {
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
       }
 
       try {
@@ -337,7 +422,9 @@ export async function action({ context, request }: Route.ActionArgs) {
         const startId = (maxIdResult[0]?.maxId || 0) + 1;
 
         // 生成新邮箱数据的逻辑
-        const newMailboxes = generateTestMailboxes(startId, count);
+        const newMailboxes = mode === 'custom'
+          ? generateCustomTestMailboxes(startId, count, customPrefix, selectedDomain)
+          : generateTestMailboxes(startId, count);
 
         // 批量插入新邮箱
         for (const mailbox of newMailboxes) {
@@ -364,11 +451,15 @@ export async function action({ context, request }: Route.ActionArgs) {
           });
         }
 
-        console.log(`✅ 成功生成 ${count} 个新邮箱，ID范围: ${startId}-${startId + count - 1}`);
+        const modeText = mode === 'custom'
+          ? `自定义前缀 "${customPrefix}" 在域名 "${selectedDomain}"`
+          : '随机生成';
+
+        console.log(`✅ 成功${modeText}生成 ${count} 个新邮箱，ID范围: ${startId}-${startId + count - 1}`);
 
         return new Response(JSON.stringify({
           success: true,
-          message: `成功生成 ${count} 个新邮箱！ID范围: ${startId}-${startId + count - 1}`
+          message: `成功${modeText}生成 ${count} 个新邮箱！ID范围: ${startId}-${startId + count - 1}`
         }), {
           headers: { 'Content-Type': 'application/json' }
         });
@@ -891,6 +982,16 @@ export default function TestMailboxesDB() {
   const [generateCount, setGenerateCount] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
 
+  // 新增：邮箱生成方式状态管理
+  const [generateMode, setGenerateMode] = useState('random');
+  const [customPrefix, setCustomPrefix] = useState('');
+  const [selectedDomain, setSelectedDomain] = useState('aug.qzz.io');
+
+  // Credit余额更新弹窗状态管理
+  const [showUpdateCreditModal, setShowUpdateCreditModal] = useState(false);
+  const [isUpdatingCredit, setIsUpdatingCredit] = useState(false);
+  const [updateProgress, setUpdateProgress] = useState({ current: 0, total: 0, currentEmail: '' });
+
   // 监听fetcher状态变化
   useEffect(() => {
     if (fetcher.state === 'idle' && fetcher.data) {
@@ -1188,20 +1289,64 @@ export default function TestMailboxesDB() {
       return;
     }
 
+    // 自定义模式下的验证
+    if (generateMode === 'custom') {
+      if (!customPrefix.trim()) {
+        setNotification({
+          message: '请输入邮箱前缀',
+          type: 'error'
+        });
+        setTimeout(() => setNotification(null), 3000);
+        return;
+      }
+
+      if (!/^[a-zA-Z0-9_-]+$/.test(customPrefix)) {
+        setNotification({
+          message: '邮箱前缀只能包含字母、数字、下划线和连字符',
+          type: 'error'
+        });
+        setTimeout(() => setNotification(null), 3000);
+        return;
+      }
+
+      if (customPrefix.length < 3 || customPrefix.length > 20) {
+        setNotification({
+          message: '邮箱前缀长度必须在3-20个字符之间',
+          type: 'error'
+        });
+        setTimeout(() => setNotification(null), 3000);
+        return;
+      }
+    }
+
     setIsGenerating(true);
 
     try {
+      // 构建提交数据
+      const submitData: Record<string, string> = {
+        action: 'generate',
+        count: count.toString(),
+        mode: generateMode
+      };
+
+      if (generateMode === 'custom') {
+        submitData.customPrefix = customPrefix;
+        submitData.selectedDomain = selectedDomain;
+      }
+
       // 使用 fetcher.submit 来处理请求
-      fetcher.submit(
-        { action: 'generate', count: count.toString() },
-        { method: 'post' }
-      );
+      fetcher.submit(submitData, { method: 'post' });
 
       setShowGenerateModal(false);
       setGenerateCount('');
+      setCustomPrefix('');
+
+      const modeText = generateMode === 'custom'
+        ? `自定义前缀 "${customPrefix}" 在域名 "${selectedDomain}"`
+        : '随机生成';
 
       setNotification({
-        message: `正在生成 ${count} 个邮箱，请稍候...`,
+        message: `正在${modeText}生成 ${count} 个邮箱，请稍候...`,
         type: 'success'
       });
 
@@ -1212,6 +1357,128 @@ export default function TestMailboxesDB() {
         type: 'error'
       });
       setIsGenerating(false);
+    }
+  };
+
+  // Credit余额更新函数
+  const handleUpdateCreditBalance = async () => {
+    setIsUpdatingCredit(true);
+    setUpdateProgress({ current: 0, total: 0, currentEmail: '' });
+
+    try {
+      // 1. 获取所有邮箱列表
+      setUpdateProgress(prev => ({ ...prev, currentEmail: '正在获取邮箱列表...' }));
+
+      const response = await fetch('https://app.aug.qzz.io/api/automation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': 'Bearer gm_credit_update_token_123456789012'
+        },
+        body: 'action=get-all-mailboxes'
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API响应错误:', response.status, errorText);
+        throw new Error(`获取邮箱列表失败: ${response.status} - ${errorText}`);
+      }
+
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(`获取邮箱列表失败: ${result.error}`);
+      }
+
+      const allMailboxes = result.data || [];
+      const mailboxesWithLinks = allMailboxes.filter(m => m.viewUsageLink);
+
+      setUpdateProgress({
+        current: 0,
+        total: mailboxesWithLinks.length,
+        currentEmail: `找到 ${mailboxesWithLinks.length} 个需要更新的邮箱`
+      });
+
+      if (mailboxesWithLinks.length === 0) {
+        setNotification({
+          message: '没有找到需要更新Credit余额的邮箱',
+          type: 'success'
+        });
+        setTimeout(() => setNotification(null), 3000);
+        return;
+      }
+
+      // 2. 批量更新Credit余额
+      let successCount = 0;
+      let errorCount = 0;
+      let skippedCount = 0;
+
+      for (let i = 0; i < mailboxesWithLinks.length; i++) {
+        const mailbox = mailboxesWithLinks[i];
+
+        setUpdateProgress({
+          current: i + 1,
+          total: mailboxesWithLinks.length,
+          currentEmail: `[${i + 1}/${mailboxesWithLinks.length}] ${mailbox.email}`
+        });
+
+        try {
+          const updateResponse = await fetch('https://app.aug.qzz.io/api/automation', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'Authorization': 'Bearer gm_credit_update_token_123456789012'
+            },
+            body: `action=update-credit-balance&email=${encodeURIComponent(mailbox.email)}`
+          });
+
+          if (updateResponse.ok) {
+            const updateResult = await updateResponse.json();
+            if (updateResult.success) {
+              successCount++;
+            } else {
+              if (updateResult.message && updateResult.message.includes('跳过')) {
+                skippedCount++;
+              } else {
+                errorCount++;
+              }
+            }
+          } else {
+            errorCount++;
+          }
+        } catch (error) {
+          errorCount++;
+          console.error(`更新 ${mailbox.email} 失败:`, error);
+        }
+
+        // 添加延迟避免API限制
+        if (i < mailboxesWithLinks.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+      // 显示最终结果
+      setNotification({
+        message: `Credit余额更新完成！成功: ${successCount}, 跳过: ${skippedCount}, 错误: ${errorCount}`,
+        type: successCount > 0 ? 'success' : 'error'
+      });
+      setTimeout(() => setNotification(null), 5000);
+
+      // 刷新页面数据
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+
+    } catch (error) {
+      console.error('Credit余额更新失败:', error);
+      setNotification({
+        message: `Credit余额更新失败: ${error instanceof Error ? error.message : '未知错误'}`,
+        type: 'error'
+      });
+      setTimeout(() => setNotification(null), 5000);
+    } finally {
+      setIsUpdatingCredit(false);
+      setShowUpdateCreditModal(false);
+      setUpdateProgress({ current: 0, total: 0, currentEmail: '' });
     }
   };
 
@@ -1652,10 +1919,11 @@ export default function TestMailboxesDB() {
             )}
           </div>
 
-          {/* 右侧：生成邮箱按钮 */}
+          {/* 右侧：操作按钮 */}
           <div style={{
             display: 'flex',
-            alignItems: 'center'
+            alignItems: 'center',
+            gap: '12px'
           }}>
             <button
               onClick={() => setShowGenerateModal(true)}
@@ -1674,6 +1942,25 @@ export default function TestMailboxesDB() {
               }}
             >
               ✨ 生成邮箱
+            </button>
+
+            <button
+              onClick={() => setShowUpdateCreditModal(true)}
+              style={{
+                padding: '8px 16px',
+                fontSize: '14px',
+                border: '1px solid #007bff',
+                backgroundColor: '#007bff',
+                color: 'white',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: '500',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              💰 更新Credit余额
             </button>
           </div>
         </div>
@@ -2564,6 +2851,113 @@ export default function TestMailboxesDB() {
               ✨ 生成新邮箱
             </h3>
 
+            {/* 生成模式选择 */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '8px',
+                fontSize: '14px',
+                color: '#495057',
+                fontWeight: '500'
+              }}>
+                生成模式:
+              </label>
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="generateMode"
+                    value="random"
+                    checked={generateMode === 'random'}
+                    onChange={(e) => setGenerateMode(e.target.value)}
+                    style={{ marginRight: '6px' }}
+                  />
+                  <span style={{ fontSize: '14px', color: '#495057' }}>随机生成</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="generateMode"
+                    value="custom"
+                    checked={generateMode === 'custom'}
+                    onChange={(e) => setGenerateMode(e.target.value)}
+                    style={{ marginRight: '6px' }}
+                  />
+                  <span style={{ fontSize: '14px', color: '#495057' }}>自定义前缀</span>
+                </label>
+              </div>
+            </div>
+
+            {/* 自定义前缀选项 */}
+            {generateMode === 'custom' && (
+              <>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontSize: '14px',
+                    color: '#495057',
+                    fontWeight: '500'
+                  }}>
+                    邮箱前缀:
+                  </label>
+                  <input
+                    type="text"
+                    value={customPrefix}
+                    onChange={(e) => setCustomPrefix(e.target.value)}
+                    placeholder="请输入邮箱前缀（3-20个字符）"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                  <div style={{
+                    fontSize: '12px',
+                    color: '#6c757d',
+                    marginTop: '4px'
+                  }}>
+                    只能包含字母、数字、下划线和连字符，长度3-20个字符
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontSize: '14px',
+                    color: '#495057',
+                    fontWeight: '500'
+                  }}>
+                    选择域名:
+                  </label>
+                  <select
+                    value={selectedDomain}
+                    onChange={(e) => setSelectedDomain(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      boxSizing: 'border-box',
+                      backgroundColor: 'white'
+                    }}
+                  >
+                    <option value="aug.qzz.io">aug.qzz.io</option>
+                    <option value="asksy.dpdns.org">asksy.dpdns.org</option>
+                    <option value="temp.qzz.io">temp.qzz.io</option>
+                    <option value="mail.qzz.io">mail.qzz.io</option>
+                    <option value="inbox.qzz.io">inbox.qzz.io</option>
+                    <option value="email.qzz.io">email.qzz.io</option>
+                  </select>
+                </div>
+              </>
+            )}
+
             <div style={{ marginBottom: '20px' }}>
               <label style={{
                 display: 'block',
@@ -2595,7 +2989,10 @@ export default function TestMailboxesDB() {
                 color: '#6c757d',
                 marginTop: '4px'
               }}>
-                新邮箱将使用6个备用域名随机分配，过期时间为7天
+                {generateMode === 'custom'
+                  ? `将生成 ${customPrefix}_1, ${customPrefix}_2, ... 格式的邮箱（单个邮箱时不添加数字后缀）`
+                  : '新邮箱将使用6个备用域名随机分配，过期时间为7天'
+                }
               </div>
             </div>
 
@@ -2608,6 +3005,8 @@ export default function TestMailboxesDB() {
                 onClick={() => {
                   setShowGenerateModal(false);
                   setGenerateCount('');
+                  setCustomPrefix('');
+                  setGenerateMode('random');
                 }}
                 disabled={isGenerating}
                 style={{
@@ -2637,6 +3036,145 @@ export default function TestMailboxesDB() {
                 }}
               >
                 {isGenerating ? '生成中...' : '开始生成'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Credit余额更新弹窗 */}
+      {showUpdateCreditModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '24px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            minWidth: '400px',
+            maxWidth: '500px'
+          }}>
+            <h3 style={{
+              margin: '0 0 16px 0',
+              color: '#333',
+              fontSize: '18px',
+              fontWeight: '600'
+            }}>
+              💰 更新Credit余额
+            </h3>
+
+            <div style={{ marginBottom: '20px' }}>
+              <p style={{
+                fontSize: '14px',
+                color: '#495057',
+                margin: '0 0 12px 0',
+                lineHeight: '1.5'
+              }}>
+                此操作将获取所有邮箱列表，并更新有viewUsageLink的邮箱的Credit余额。
+              </p>
+
+              {isUpdatingCredit && (
+                <div style={{
+                  padding: '12px',
+                  backgroundColor: '#f8f9fa',
+                  borderRadius: '6px',
+                  border: '1px solid #e9ecef',
+                  marginTop: '12px'
+                }}>
+                  <div style={{
+                    fontSize: '14px',
+                    color: '#495057',
+                    marginBottom: '8px'
+                  }}>
+                    {updateProgress.currentEmail}
+                  </div>
+
+                  {updateProgress.total > 0 && (
+                    <>
+                      <div style={{
+                        width: '100%',
+                        height: '8px',
+                        backgroundColor: '#e9ecef',
+                        borderRadius: '4px',
+                        overflow: 'hidden',
+                        marginBottom: '4px'
+                      }}>
+                        <div style={{
+                          width: `${(updateProgress.current / updateProgress.total) * 100}%`,
+                          height: '100%',
+                          backgroundColor: '#007bff',
+                          transition: 'width 0.3s ease'
+                        }}></div>
+                      </div>
+                      <div style={{
+                        fontSize: '12px',
+                        color: '#6c757d',
+                        textAlign: 'center'
+                      }}>
+                        {updateProgress.current} / {updateProgress.total}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              <div style={{
+                fontSize: '12px',
+                color: '#6c757d',
+                marginTop: '8px'
+              }}>
+                ⚠️ 此操作可能需要几分钟时间，请耐心等待
+              </div>
+            </div>
+
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'flex-end'
+            }}>
+              <button
+                onClick={() => {
+                  setShowUpdateCreditModal(false);
+                  setUpdateProgress({ current: 0, total: 0, currentEmail: '' });
+                }}
+                disabled={isUpdatingCredit}
+                style={{
+                  padding: '8px 16px',
+                  fontSize: '14px',
+                  border: '1px solid #6c757d',
+                  backgroundColor: 'white',
+                  color: '#6c757d',
+                  borderRadius: '4px',
+                  cursor: isUpdatingCredit ? 'not-allowed' : 'pointer'
+                }}
+              >
+                取消
+              </button>
+              <button
+                onClick={handleUpdateCreditBalance}
+                disabled={isUpdatingCredit}
+                style={{
+                  padding: '8px 16px',
+                  fontSize: '14px',
+                  border: '1px solid #007bff',
+                  backgroundColor: isUpdatingCredit ? '#6c757d' : '#007bff',
+                  color: 'white',
+                  borderRadius: '4px',
+                  cursor: isUpdatingCredit ? 'not-allowed' : 'pointer',
+                  fontWeight: '500'
+                }}
+              >
+                {isUpdatingCredit ? '更新中...' : '开始更新'}
               </button>
             </div>
           </div>

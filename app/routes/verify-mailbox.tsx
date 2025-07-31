@@ -145,7 +145,9 @@ export default function VerifyMailbox() {
   const [email, setEmail] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [emailCopied, setEmailCopied] = useState(false);
+  const [configCopied, setConfigCopied] = useState(false);
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
+  const [imageModal, setImageModal] = useState<{src: string, alt: string} | null>(null);
 
   // 自动刷新相关状态
   const [countdown, setCountdown] = useState(30);
@@ -274,6 +276,46 @@ export default function VerifyMailbox() {
     }
   };
 
+  // 复制配置代码到剪贴板
+  const copyConfigCode = async () => {
+    const configText = `"http.proxy": "http://127.0.0.1:7890",
+"http.proxyAuthorization": null,
+"http.experimental.systemCertificatesV2": true,
+"http.useLocalProxyConfiguration": true,
+"http.proxyStrictSSL": false,
+"http.proxySupport": "on"`;
+
+    try {
+      await navigator.clipboard.writeText(configText);
+      setConfigCopied(true);
+      setNotification({
+        type: 'success',
+        message: '配置代码已复制到剪贴板'
+      });
+      setTimeout(() => {
+        setConfigCopied(false);
+        setNotification(null);
+      }, 2000);
+    } catch (error) {
+      console.error('复制失败:', error);
+      setNotification({
+        type: 'error',
+        message: '复制失败，请手动复制'
+      });
+      setTimeout(() => setNotification(null), 3000);
+    }
+  };
+
+  // 处理图片双击显示弹窗
+  const handleImageDoubleClick = (src: string, alt: string) => {
+    setImageModal({ src, alt });
+  };
+
+  // 关闭图片弹窗
+  const closeImageModal = () => {
+    setImageModal(null);
+  };
+
   // 标记邮件为已读
   const markEmailAsReadHandler = async (emailId: string) => {
     try {
@@ -397,7 +439,7 @@ export default function VerifyMailbox() {
 
         {/* 邮件列表 - 支持自动验证和手动验证结果 */}
         {((actionData && actionData.success && actionData.data) || (shouldShowAutoResult && autoVerifyResult?.success && autoVerifyResult.data)) && (
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-7xl mx-auto">
             {(() => {
               // 获取显示数据（优先使用actionData，其次使用autoVerifyResult）
               const displayData = actionData?.data || autoVerifyResult?.data;
@@ -458,6 +500,193 @@ export default function VerifyMailbox() {
                     </div>
                   </div>
 
+                  {/* 左右分栏布局 - 左侧占2/3，右侧占1/3 */}
+                  <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                    {/* 左栏：邮箱信息和邮件列表 */}
+                    <div className="xl:col-span-2">
+                      <div className="bg-white rounded-lg shadow-md p-4 h-[620px] flex flex-col">
+                        {/* 邮箱信息 */}
+                        <div className="flex-shrink-0 mb-4">
+                          <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                            <span>📮</span>
+                            当前邮箱
+                          </h3>
+                          <div className="space-y-2 text-sm">
+                            <div>
+                              <span className="text-gray-600">邮箱地址：</span>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-blue-600 font-mono text-sm break-all">{displayData.mailbox.email}</span>
+                                <button
+                                  onClick={() => copyEmailAddress(displayData.mailbox.email)}
+                                  className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-600 rounded transition-colors flex-shrink-0"
+                                  title="复制邮箱地址"
+                                >
+                                  {emailCopied ? (
+                                    <>
+                                      <Check className="w-3 h-3" />
+                                      已复制
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy className="w-3 h-3" />
+                                      复制
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">有效期：</span>
+                              <span className="text-gray-800">
+                                {new Date(displayData.mailbox.expiresAt).toLocaleString('zh-CN')}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">状态：</span>
+                              <span className={`font-medium ${displayData.isExpired ? 'text-orange-600' : 'text-green-600'}`}>
+                                {displayData.isExpired ? '已过期' : '活跃中'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 邮件列表 */}
+                        <div className="flex-1 flex flex-col">
+                          <div className="p-3 border-b border-gray-200 flex-shrink-0">
+                            <h3 className="font-medium text-gray-900 flex items-center gap-2">
+                              <span>📬</span>
+                              邮件列表 ({displayData.totalCount})
+                            </h3>
+                            {displayData.emails.filter(email => !email.isRead).length > 0 && (
+                              <p className="text-xs text-red-600 mt-1">
+                                未读: {displayData.emails.filter(email => !email.isRead).length}
+                              </p>
+                            )}
+                          </div>
+                          <div className="overflow-y-auto max-h-[400px]">
+                            {displayData.emails.length === 0 ? (
+                              <div className="p-6 text-center text-gray-500">
+                                <div className="text-3xl mb-2">📭</div>
+                                <p className="text-sm">暂无邮件</p>
+                                <p className="text-xs mt-1">邮件将自动显示在这里</p>
+                              </div>
+                            ) : (
+                              <div className="divide-y divide-gray-200">
+                                {displayData.emails.map((email, index) => (
+                                  <EnhancedMailItem
+                                    key={email.id}
+                                    id={email.id}
+                                    index={index + 1}
+                                    name={email.fromAddress.split('@')[0]}
+                                    email={email.fromAddress}
+                                    subject={email.subject || "(无主题)"}
+                                    date={email.receivedAt.toISOString()}
+                                    isRead={email.isRead}
+                                    textContent={(email as any).textContent || undefined}
+                                    htmlContent={(email as any).htmlContent || undefined}
+                                    onMarkAsRead={markEmailAsReadHandler}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 右栏：使用教程 */}
+                    <div className="xl:col-span-1">
+                      <div className="bg-white rounded-lg shadow-md p-4 h-[620px] overflow-y-auto">
+                        <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                          <span>🔧</span>
+                          设置全局代理解决 Augment 插件登录失败
+                        </h3>
+                        <div className="space-y-3 text-sm text-gray-600">
+                          {/* 问题描述 */}
+                          <div className="bg-red-50 border border-red-200 rounded p-3">
+                            <h4 className="font-medium text-red-800 mb-2">问题描述：</h4>
+                            <ul className="text-xs text-red-700 space-y-1">
+                              <li>• Augment 插件在中国大陆用户登录时，因 i1.api.augmentcode.com 接口被锁，导致"Sign in failed"</li>
+                              <li>• 解决方法：必须设置"全局代理"，否则无法访问该接口</li>
+                            </ul>
+                          </div>
+
+                          {/* VSCode/Cursor 设置 */}
+                          <div>
+                            <h4 className="font-medium text-gray-800 mb-2">VSCode/Cursor 设置方法：</h4>
+                            <p className="text-xs mb-2">在 settings.json（Windows快捷键：ctrl+shift+p，macOS快捷键：command+shift+p，输入 user json）中添加如下配置（以 Clash 默认端口为例）：</p>
+                            <div className="mb-3">
+                              <img
+                                src="/vscode-settings.png"
+                                alt="VSCode设置界面示例"
+                                className="w-full rounded border border-gray-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                                onDoubleClick={() => handleImageDoubleClick("/vscode-settings.png", "VSCode设置界面示例")}
+                                title="双击查看大图"
+                              />
+                            </div>
+                            <div className="relative">
+                              <div className="bg-gray-50 p-3 rounded text-xs font-mono overflow-x-auto">
+                                <div>"http.proxy": "http://127.0.0.1:7890",</div>
+                                <div>"http.proxyAuthorization": null,</div>
+                                <div>"http.experimental.systemCertificatesV2": true,</div>
+                                <div>"http.useLocalProxyConfiguration": true,</div>
+                                <div>"http.proxyStrictSSL": false,</div>
+                                <div>"http.proxySupport": "on"</div>
+                              </div>
+                              <button
+                                onClick={copyConfigCode}
+                                className="absolute top-2 right-2 inline-flex items-center gap-1 px-2 py-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-600 rounded transition-colors"
+                                title="复制配置代码"
+                              >
+                                {configCopied ? (
+                                  <>
+                                    <Check className="w-3 h-3" />
+                                    已复制
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3 h-3" />
+                                    复制
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* JetBrains 设置 */}
+                          <div>
+                            <h4 className="font-medium text-gray-800 mb-1">JetBrains 系列（如 IDEA）：</h4>
+                            <p className="text-xs mb-2">在"文件-设置-外观与行为-HTTP代理"中填写代理端口并测试连接</p>
+                            <div className="mb-3">
+                              <img
+                                src="/idea-setting.png"
+                                alt="IDEA代理设置界面示例"
+                                className="w-full rounded border border-gray-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                                onDoubleClick={() => handleImageDoubleClick("/idea-setting.png", "IDEA代理设置界面示例")}
+                                title="双击查看大图"
+                              />
+                            </div>
+                          </div>
+
+                          {/* 翻墙软件设置 */}
+                          <div>
+                            <h4 className="font-medium text-gray-800 mb-1">翻墙类代理软件（如 verge）：</h4>
+                            <p className="text-xs">规则必须设置为"全局"模式</p>
+                          </div>
+
+                          {/* 重要提醒 */}
+                          <div className="bg-orange-50 border border-orange-200 rounded p-3">
+                            <p className="text-xs text-orange-700">
+                              <strong>重点：</strong>代理规则一定要设为"全局"，否则无法解决登录失败问题。
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 隐藏原来的邮箱信息，因为已经移到左栏 */}
+                  <div style={{display: 'none'}}>
                   {/* 邮箱信息 */}
                   <div className="bg-white rounded-lg shadow-md p-6 mb-6">
                     <h2 className="text-xl font-semibold text-gray-900 mb-4">
@@ -536,8 +765,8 @@ export default function VerifyMailbox() {
                     </div>
                   )}
 
-                  {/* 邮件列表 */}
-                  <div className="bg-white rounded-lg shadow-md">
+                  {/* 邮件列表 - 已移到左栏，这里隐藏 */}
+                  <div style={{display: 'none'}} className="bg-white rounded-lg shadow-md">
                     <div className="p-6 border-b border-gray-200">
                       <div className="flex items-center justify-between">
                         <h2 className="text-xl font-semibold text-gray-900">
@@ -586,12 +815,41 @@ export default function VerifyMailbox() {
                       </div>
                     )}
                   </div>
+                  </div>
                 </>
               );
             })()}
           </div>
         )}
 
+        {/* 图片弹窗 */}
+        {imageModal && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
+            onClick={closeImageModal}
+          >
+            <div className="relative max-w-4xl max-h-[90vh] p-4">
+              <img
+                src={imageModal.src}
+                alt={imageModal.alt}
+                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              />
+              <button
+                onClick={closeImageModal}
+                className="absolute top-2 right-2 bg-white bg-opacity-80 hover:bg-opacity-100 text-gray-800 rounded-full p-2 transition-all"
+                title="关闭"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <div className="absolute bottom-2 left-2 bg-black bg-opacity-60 text-white px-3 py-1 rounded text-sm">
+                {imageModal.alt}
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>
