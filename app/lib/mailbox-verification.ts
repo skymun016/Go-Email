@@ -5,7 +5,7 @@
  */
 
 import type { DrizzleD1Database } from "drizzle-orm/d1";
-import { eq, and, gt } from "drizzle-orm";
+import { eq, and, or, like, gt } from "drizzle-orm";
 import { mailboxes, emails } from "~/db/schema";
 import type { Email, Mailbox } from "~/db/schema";
 
@@ -161,7 +161,7 @@ export async function checkMailboxExists(
 }
 
 /**
- * 获取邮箱的邮件列表
+ * 获取邮箱的邮件列表（只显示包含"augment code"的邮件）
  */
 export async function getMailboxEmails(
   db: DrizzleD1Database,
@@ -170,7 +170,17 @@ export async function getMailboxEmails(
 ): Promise<{ success: boolean; emails?: Email[]; error?: string }> {
   try {
     const emailList = await db.query.emails.findMany({
-      where: eq(emails.mailboxId, mailboxId),
+      where: and(
+        eq(emails.mailboxId, mailboxId),
+        or(
+          like(emails.textContent, '%augment code%'),
+          like(emails.htmlContent, '%augment code%'),
+          like(emails.textContent, '%Augment Code%'),
+          like(emails.htmlContent, '%Augment Code%'),
+          like(emails.textContent, '%AUGMENT CODE%'),
+          like(emails.htmlContent, '%AUGMENT CODE%')
+        )
+      ),
       orderBy: (emails, { desc }) => [desc(emails.receivedAt)],
       limit: limit,
     });
@@ -178,9 +188,9 @@ export async function getMailboxEmails(
     return { success: true, emails: emailList };
   } catch (error) {
     console.error("获取邮件列表失败:", error);
-    return { 
-      success: false, 
-      error: "获取邮件列表时发生错误，请稍后重试" 
+    return {
+      success: false,
+      error: "获取邮件列表时发生错误，请稍后重试"
     };
   }
 }
