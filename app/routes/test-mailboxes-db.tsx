@@ -11,14 +11,15 @@ import { testMailboxes, mailboxes } from "~/db/schema";
 import { asc, count, eq, like, sql, and, isNull } from "drizzle-orm";
 import { requireAdmin } from "~/lib/auth";
 
-// 当前支持的域名列表（包括主域名和备用域名）
+// 当前支持的域名列表（与 config.cjs 中的配置保持一致）
 const BACKUP_DOMAINS = [
-  'aug.qzz.io',
-  'asksy.dpdns.org',
-  'temp.qzz.io',
-  'mail.qzz.io',
-  'inbox.qzz.io',
-  'email.qzz.io'
+  'aug.qzz.io',           // 主域名
+  'asksy.dpdns.org',      // 备用域名1
+  'v5augment.ggff.net',   // 备用域名2
+  'xm252.qzz.io',        // 备用域名3
+  'augmails.qzz.io',     // 备用域名4
+  'adtg.qzz.io',         // 备用域名5
+  'amdt.qzz.io'          // 备用域名6
 ];
 
 // 验证码生成密钥
@@ -2947,12 +2948,9 @@ export default function TestMailboxesDB() {
                       backgroundColor: 'white'
                     }}
                   >
-                    <option value="aug.qzz.io">aug.qzz.io</option>
-                    <option value="asksy.dpdns.org">asksy.dpdns.org</option>
-                    <option value="temp.qzz.io">temp.qzz.io</option>
-                    <option value="mail.qzz.io">mail.qzz.io</option>
-                    <option value="inbox.qzz.io">inbox.qzz.io</option>
-                    <option value="email.qzz.io">email.qzz.io</option>
+                    {BACKUP_DOMAINS.map(domain => (
+                      <option key={domain} value={domain}>{domain}</option>
+                    ))}
                   </select>
                 </div>
               </>
