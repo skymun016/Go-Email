@@ -1,8 +1,9 @@
 import { useState } from "react";
+import { Link } from "react-router";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, ChevronRight, Eye } from "lucide-react";
 
 /**
  * 从邮件内容中提取验证码
@@ -109,10 +110,13 @@ export function EnhancedMailItem({
 	};
 
 	return (
-		<div className={cn(
-			"group relative transition-all duration-200 hover:shadow-md p-4 hover:bg-gray-50 transition-colors",
-			!isRead && "bg-gradient-to-r from-blue-50 to-cyan-50"
-		)}>
+		<Link
+			to={`/mail/${id}`}
+			className={cn(
+				"group relative transition-all duration-200 hover:shadow-md p-4 hover:bg-gray-50 transition-colors cursor-pointer block",
+				!isRead && "bg-gradient-to-r from-blue-50 to-cyan-50"
+			)}
+		>
 			{!isRead && (
 				<div className="absolute left-3 top-1/2 transform -translate-y-1/2 w-3 h-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full shadow-lg animate-pulse" />
 			)}
@@ -223,11 +227,15 @@ export function EnhancedMailItem({
 					)}
 				</div>
 
-				{/* Hover indicator */}
+				{/* Hover indicator with view details */}
 				<div className="absolute right-4 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-					<div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+					<div className="flex items-center gap-2 bg-blue-500 text-white px-3 py-1.5 rounded-full shadow-lg">
+						<Eye className="w-3 h-3" />
+						<span className="text-xs font-medium">查看详情</span>
+						<ChevronRight className="w-3 h-3" />
+					</div>
 				</div>
 			</div>
-		</div>
+		</Link>
 	);
 }

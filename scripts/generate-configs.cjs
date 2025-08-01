@@ -170,6 +170,12 @@ export const APP_CONFIG = {
     },
   },
 
+  user: {
+    registrationEnabled: ${config.user.registrationEnabled},
+    defaultQuota: ${config.user.defaultQuota},
+    defaultExpirationDays: ${config.user.defaultExpirationDays},
+  },
+
   admin: {
     accounts: ${JSON.stringify(config.admin.accounts, null, 4)},
   },
